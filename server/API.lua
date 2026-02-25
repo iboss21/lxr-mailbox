@@ -1,10 +1,28 @@
+--[[
+    ██╗     ██╗  ██╗██████╗        ███╗   ███╗ █████╗ ██╗██╗     ██████╗  ██████╗ ██╗  ██╗
+    ██║     ╚██╗██╔╝██╔══██╗       ████╗ ████║██╔══██╗██║██║     ██╔══██╗██╔═══██╗╚██╗██╔╝
+    ██║      ╚███╔╝ ██████╔╝█████╗ ██╔████╔██║███████║██║██║     ██████╔╝██║   ██║ ╚███╔╝ 
+    ██║      ██╔██╗ ██╔══██╗╚════╝ ██║╚██╔╝██║██╔══██║██║██║     ██╔══██╗██║   ██║ ██╔██╗ 
+    ███████╗██╔╝ ██╗██║  ██║       ██║ ╚═╝ ██║██║  ██║██║███████╗██████╔╝╚██████╔╝██╔╝ ██╗
+    ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝       ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝
+
+    🐺 LXR Mailbox System - Server API
+
+    Public API exposed via exports('getMailboxAPI') for use by other resources.
+    Provides programmatic access to mailbox lookups and mail sending.
+
+    ═══════════════════════════════════════════════════════════════════════════════
+    Developer:   iBoss21 / The Lux Empire  |  https://www.wolves.land
+    © 2026 iBoss21 / The Lux Empire | wolves.land | All Rights Reserved
+    ═══════════════════════════════════════════════════════════════════════════════
+]]
+
 MailboxAPI = {}
 
 exports("getMailboxAPI", function()
     return MailboxAPI
 end)
 
-local VORPcore = exports.vorp_core:GetCore()
 local DEFAULT_SYSTEM_SENDER = "Postmaster"
 
 local function sanitizeString(value)
@@ -20,12 +38,9 @@ local function findPlayerByCharIdentifier(charIdentifier)
     if not charIdentifier then return nil end
     for _, playerId in ipairs(GetPlayers()) do
         local src = tonumber(playerId)
-        local user = VORPcore.getUser(src)
-        if user then
-            local character = user.getUsedCharacter
-            if character and tostring(character.charIdentifier) == tostring(charIdentifier) then
-                return src
-            end
+        local charData = Framework.GetCharacterData(src)
+        if charData and tostring(charData.charIdentifier) == tostring(charIdentifier) then
+            return src
         end
     end
     return nil
@@ -153,7 +168,7 @@ function MailboxAPI:SendMailToMailbox(mailboxId, subject, message, options)
             )
 
             if (unreadCount or 0) > 0 then
-                BccUtils.RPC:Notify('bcc-mailbox:checkMailNotification', { unreadCount = unreadCount }, notifTarget)
+                BccUtils.RPC:Notify('lxr-mailbox:checkMailNotification', { unreadCount = unreadCount }, notifTarget)
             end
         end
     end

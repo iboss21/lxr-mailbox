@@ -1,7 +1,37 @@
-local VORPcore = exports.vorp_core:GetCore()
+--[[
+    ██╗     ██╗  ██╗██████╗        ███╗   ███╗ █████╗ ██╗██╗     ██████╗  ██████╗ ██╗  ██╗
+    ██║     ╚██╗██╔╝██╔══██╗       ████╗ ████║██╔══██╗██║██║     ██╔══██╗██╔═══██╗╚██╗██╔╝
+    ██║      ╚███╔╝ ██████╔╝█████╗ ██╔████╔██║███████║██║██║     ██████╔╝██║   ██║ ╚███╔╝ 
+    ██║      ██╔██╗ ██╔══██╗╚════╝ ██║╚██╔╝██║██╔══██║██║██║     ██╔══██╗██║   ██║ ██╔██╗ 
+    ███████╗██╔╝ ██╗██║  ██║       ██║ ╚═╝ ██║██║  ██║██║███████╗██████╔╝╚██████╔╝██╔╝ ██╗
+    ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝       ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝
+
+    🐺 LXR Mailbox System - Server Side
+
+    Handles server-side mailbox operations: item registration, mail send/receive,
+    read-state management, contacts, letter purchases, and mailbox registration.
+
+    ═══════════════════════════════════════════════════════════════════════════════
+    SERVER INFORMATION
+    ═══════════════════════════════════════════════════════════════════════════════
+
+    Server:      The Land of Wolves 🐺
+    Developer:   iBoss21 / The Lux Empire
+    Website:     https://www.wolves.land
+    Discord:     https://discord.gg/CrKcWdfd3A
+
+    ═══════════════════════════════════════════════════════════════════════════════
+
+    © 2026 iBoss21 / The Lux Empire | wolves.land | All Rights Reserved
+]]
+
+-- ████████████████████████████████████████████████████████████████████████████████
+-- ████████████████████████ INITIALIZATION ████████████████████████████████████████
+-- ████████████████████████████████████████████████████████████████████████████████
+
 BccUtils = exports['bcc-utils'].initiate()
 
-local MailboxAPI = MailboxAPI or exports['bcc-mailbox']:getMailboxAPI()
+local MailboxAPI = MailboxAPI or exports['lxr-mailbox']:getMailboxAPI()
 
 do
     local seed = os.time()
@@ -11,71 +41,68 @@ do
     math.randomseed(seed)
 end
 
-exports.vorp_inventory:registerUsableItem(Config.MailboxItem, function(data)
-    local src = data.source
-    DevPrint('MailboxItem used. src=', src)
+-- ████████████████████████████████████████████████████████████████████████████████
+-- ████████████████████████ USABLE ITEM HANDLER ███████████████████████████████████
+-- ████████████████████████████████████████████████████████████████████████████████
 
-    local user = VORPcore.getUser(src)
-    if not user then
-        DevPrint("Error: User not found for source: " .. tostring(src))
-        exports.vorp_inventory:closeInventory(src)
-        return
-    end
+-- Register the mailbox letter item as usable (runs after Framework is initialized)
+CreateThread(function()
+    Wait(200)
+    Framework.RegisterUsableItem(Config.MailboxItem, function(data)
+        local src = data.source
+        DevPrint('MailboxItem used. src=', src)
 
-    local char = user.getUsedCharacter
-    if not char then
-        DevPrint("Error: Character data not found for user: " .. tostring(src))
-        exports.vorp_inventory:closeInventory(src)
-        return
-    end
-
-    local fullName = ((char.firstname or '') .. ' ' .. (char.lastname or '')):gsub("^%s*(.-)%s*$", "%1")
-    local mailbox = GetMailboxByCharIdentifier(char.charIdentifier)
-
-    if not mailbox then
-        NotifyClient(src, _U('RegisterAtMailboxLocation'), 'error', 5000)
-        exports.vorp_inventory:closeInventory(src)
-        return
-    end
-    BccUtils.RPC:Notify('bcc-mailbox:mailboxStatus', { hasMailbox = true, mailboxId  = mailbox.mailbox_id, playerName = fullName, postalCode = mailbox.postal_code}, src)
-
-    exports.vorp_inventory:closeInventory(src)
-
-    local durCfg = Config.LetterDurability
-    if not durCfg or not durCfg.Enabled then return end
-
-    local itemName = Config.MailboxItem or 'letter'
-    local item = exports.vorp_inventory:getItem(src, itemName)
-    if not item or not item.id then return end
-
-    local maxValue = tonumber(durCfg.Max or 100) or 100
-    local damage = tonumber(durCfg.DamagePerUse or 1) or 1
-    local current = (item.metadata and item.metadata.durability) or maxValue
-    local newVal = math.max(0, math.floor(current - damage))
-
-    if newVal <= 0 then
-        if exports.vorp_inventory.subItemID then
-            exports.vorp_inventory:subItemID(src, item.id)
-        else
-            exports.vorp_inventory:subItem(src, itemName, 1)
+        local charData = Framework.GetCharacterData(src)
+        if not charData then
+            DevPrint("Error: User not found for source: " .. tostring(src))
+            Framework.CloseInventory(src)
+            return
         end
-        NotifyClient(src, _U('LetterDestroyed'), 'error', 4000)
-        return
-    end
 
-    local meta = item.metadata or {}
-    meta.durability = newVal
-    meta.id = item.id
-    meta.description = _U('LetterDurabilityDescription', newVal)
+        local fullName = ((charData.firstname or '') .. ' ' .. (charData.lastname or '')):gsub("^%s*(.-)%s*$", "%1")
+        local mailbox = GetMailboxByCharIdentifier(charData.charIdentifier)
 
-    exports.vorp_inventory:setItemMetadata(src, item.id, meta, 1)
+        if not mailbox then
+            NotifyClient(src, _U('RegisterAtMailboxLocation'), 'error', 5000)
+            Framework.CloseInventory(src)
+            return
+        end
+        BccUtils.RPC:Notify('lxr-mailbox:mailboxStatus', { hasMailbox = true, mailboxId = mailbox.mailbox_id, playerName = fullName, postalCode = mailbox.postal_code }, src)
 
-    if durCfg.NotifyOnChange then
-        NotifyClient(src, _U('LetterDurabilityUpdate', newVal), 'info', 3000)
-    end
-end, GetCurrentResourceName())
+        Framework.CloseInventory(src)
 
-BccUtils.RPC:Register("bcc-mailbox:SendMail", function(params, cb, recSource)
+        local durCfg = Config.LetterDurability
+        if not durCfg or not durCfg.Enabled then return end
+
+        local itemName = Config.MailboxItem or 'letter'
+        local item = Framework.GetItem(src, itemName)
+        if not item or not item.id then return end
+
+        local maxValue = tonumber(durCfg.Max or 100) or 100
+        local damage   = tonumber(durCfg.DamagePerUse or 1) or 1
+        local current  = (item.metadata and item.metadata.durability) or maxValue
+        local newVal   = math.max(0, math.floor(current - damage))
+
+        if newVal <= 0 then
+            Framework.SubItem(src, item.id, itemName, 1)
+            NotifyClient(src, _U('LetterDestroyed'), 'error', 4000)
+            return
+        end
+
+        local meta = item.metadata or {}
+        meta.durability  = newVal
+        meta.id          = item.id
+        meta.description = _U('LetterDurabilityDescription', newVal)
+
+        Framework.SetItemMetadata(src, item.id, meta, 1)
+
+        if durCfg.NotifyOnChange then
+            NotifyClient(src, _U('LetterDurabilityUpdate', newVal), 'info', 3000)
+        end
+    end)
+end)
+
+BccUtils.RPC:Register("lxr-mailbox:SendMail", function(params, cb, recSource)
     local _source = recSource
     local recipientPostalCode = params and params.recipientPostalCode
     local subject = params and params.subject
@@ -83,18 +110,10 @@ BccUtils.RPC:Register("bcc-mailbox:SendMail", function(params, cb, recSource)
 
     local response = { success = false }
 
-    local User = VORPcore.getUser(_source)
-    if not User then
+    local charData = Framework.GetCharacterData(_source)
+    if not charData then
         DevPrint("SendMail RPC: user not found for source " .. tostring(_source))
         response.reason = 'user_not_found'
-        cb(response)
-        return
-    end
-
-    local Character = User.getUsedCharacter
-    if not Character then
-        DevPrint("SendMail RPC: character not found for user " .. tostring(_source))
-        response.reason = 'character_not_found'
         cb(response)
         return
     end
@@ -104,7 +123,7 @@ BccUtils.RPC:Register("bcc-mailbox:SendMail", function(params, cb, recSource)
     DevPrint("Subject: " .. tostring(subject))
     DevPrint("Message: " .. tostring(message))
 
-    local availableMoney = tonumber(Character.money) or 0
+    local availableMoney = tonumber(charData.money) or 0
     if availableMoney < Config.SendMessageFee then
         NotifyClient(_source, _U('NotEnoughMoney'), "error", 5000)
         response.reason = 'insufficient_funds'
@@ -141,7 +160,7 @@ BccUtils.RPC:Register("bcc-mailbox:SendMail", function(params, cb, recSource)
         return
     end
 
-    local senderMailbox = MailboxAPI:GetMailboxByCharIdentifier(Character.charIdentifier)
+    local senderMailbox = MailboxAPI:GetMailboxByCharIdentifier(charData.charIdentifier)
     if not senderMailbox then
         NotifyClient(_source, _U('MailboxNotFound'), "error", 5000)
         response.reason = 'sender_mailbox_not_found'
@@ -149,18 +168,18 @@ BccUtils.RPC:Register("bcc-mailbox:SendMail", function(params, cb, recSource)
         return
     end
 
-    local senderName = (Character.firstname or '') .. " " .. (Character.lastname or '')
+    local senderName = (charData.firstname or '') .. " " .. (charData.lastname or '')
     local options = {
         fromChar = senderMailbox.postal_code,
         fromName = senderName
     }
 
     local ok, result = MailboxAPI:SendMailToMailbox(targetMailbox.mailbox_id, subject, message, options)
-    DevPrint(("[bcc-mailbox] SendMailToMailbox -> ok=%s result=%s to_mailbox=%s subject=%s")
+    DevPrint(("[lxr-mailbox] SendMailToMailbox -> ok=%s result=%s to_mailbox=%s subject=%s")
         :format(tostring(ok), tostring(result), tostring(targetMailbox.mailbox_id), tostring(subject)))
 
     if ok then
-        Character.removeCurrency(0, Config.SendMessageFee)
+        Framework.RemoveCurrency(_source, Config.SendMessageFee)
         local recipientLabel = TrimWhitespace((targetMailbox.first_name or '') .. ' ' .. (targetMailbox.last_name or ''))
         if recipientLabel == '' then
             recipientLabel = targetMailbox.postal_code or tostring(targetMailbox.mailbox_id)
@@ -184,28 +203,19 @@ BccUtils.RPC:Register("bcc-mailbox:SendMail", function(params, cb, recSource)
     cb(response)
 end)
 
-BccUtils.RPC:Register('bcc-mailbox:UpdateMailboxInfo', function(params, cb, src)
+BccUtils.RPC:Register('lxr-mailbox:UpdateMailboxInfo', function(params, cb, src)
     DevPrint('UpdateMailboxInfo RPC called. src=', src, 'params=', params)
 
-    local user = VORPcore.getUser(src)
-    if not user then
-        DevPrint('UpdateMailboxInfo: invalid player/char (no user)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+    local charData = Framework.GetCharacterData(src)
+    if not charData then
+        DevPrint(\'UpdateMailboxInfo: invalid player/char\')
         cb(false)
         return
     end
 
-    local char = user.getUsedCharacter
-    if not char then
-        DevPrint('UpdateMailboxInfo: invalid player/char (no character)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false)
-        return
-    end
-
-    local charIdentifier = char.charIdentifier
-    local firstName = char.firstname
-    local lastName  = char.lastname
+    local charIdentifier = charData.charIdentifier
+    local firstName = charData.firstname
+    local lastName  = charData.lastname
 
     local affectedRows = UpdateMailboxNames(charIdentifier, firstName, lastName)
 
@@ -229,27 +239,18 @@ BccUtils.RPC:Register('bcc-mailbox:UpdateMailboxInfo', function(params, cb, src)
     cb(false)
 end)
 
-BccUtils.RPC:Register('bcc-mailbox:CheckMailbox', function(params, cb, src)
+BccUtils.RPC:Register('lxr-mailbox:CheckMailbox', function(params, cb, src)
     DevPrint('CheckMailbox RPC called. src=', src, 'params=', params)
 
-    local user = VORPcore.getUser(src)
-    if not user then
-        DevPrint('CheckMailbox: invalid player/char (no user)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+    local charData = Framework.GetCharacterData(src)
+    if not charData then
+        DevPrint('user or character not found')
         cb(false)
         return
     end
 
-    local char = user.getUsedCharacter
-    if not char then
-        DevPrint('CheckMailbox: invalid player/char (no char)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false)
-        return
-    end
-
-    local charIdentifier = char.charIdentifier
-    local fullName = (char.firstname or '') .. ' ' .. (char.lastname or '')
+    local charIdentifier = charData.charIdentifier
+    local fullName = (charData.firstname or '') .. ' ' .. (charData.lastname or '')
 
     local mailboxRow = GetMailboxByCharIdentifier(charIdentifier)
 
@@ -271,28 +272,19 @@ BccUtils.RPC:Register('bcc-mailbox:CheckMailbox', function(params, cb, src)
     })
 end)
 
-BccUtils.RPC:Register('bcc-mailbox:FetchMail', function(params, cb, src)
+BccUtils.RPC:Register('lxr-mailbox:FetchMail', function(params, cb, src)
     DevPrint('FetchMail RPC called. src=', src, 'params=', params)
 
-    local user = VORPcore.getUser(src)
-    if not user then
-        DevPrint('FetchMail: invalid player/char (no user)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+    local charData = Framework.GetCharacterData(src)
+    if not charData then
+        DevPrint(\'FetchMail: invalid player/char\')
         cb(false)
         return
     end
 
-    local char = user.getUsedCharacter
-    if not char then
-        DevPrint('FetchMail: invalid player/char (no character)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false)
-        return
-    end
-
-    local mailboxRow = GetMailboxByCharIdentifier(char.charIdentifier)
+    local mailboxRow = GetMailboxByCharIdentifier(charData.charIdentifier)
     if not mailboxRow then
-        DevPrint('FetchMail: mailbox not found for char_identifier=', tostring(char.charIdentifier))
+        DevPrint('FetchMail: mailbox not found for char_identifier=', tostring(charData.charIdentifier))
         NotifyClient(src, _U('MailboxNotFound'), 'error', 5000)
         cb(false)
         return
@@ -300,7 +292,7 @@ BccUtils.RPC:Register('bcc-mailbox:FetchMail', function(params, cb, src)
 
     local recipientMailboxId = mailboxRow.mailbox_id
     local recipientPostal    = mailboxRow.postal_code
-    local charIdentifier     = tostring(char.charIdentifier)
+    local charIdentifier     = tostring(charData.charIdentifier)
 
     local mails = GetMailsForRecipient(recipientMailboxId, recipientPostal, charIdentifier)
     DevPrint('FetchMail: fetched ', #mails, ' mails for char_identifier=', charIdentifier)
@@ -314,28 +306,19 @@ BccUtils.RPC:Register('bcc-mailbox:FetchMail', function(params, cb, src)
     cb(true, { mails = mails, count = #mails })
 end)
 
-BccUtils.RPC:Register('bcc-mailbox:PollUnread', function(params, cb, src)
+BccUtils.RPC:Register('lxr-mailbox:PollUnread', function(params, cb, src)
     DevPrint('PollUnread RPC called. src=', src, 'params=', params)
 
-    local user = VORPcore.getUser(src)
-    if not user then
-        DevPrint('PollUnread: invalid player/char (no user)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+    local charData = Framework.GetCharacterData(src)
+    if not charData then
+        DevPrint(\'PollUnread: invalid player/char\')
         cb(false)
         return
     end
 
-    local char = user.getUsedCharacter
-    if not char then
-        DevPrint('PollUnread: invalid player/char (no character)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false)
-        return
-    end
-
-    local mailbox = GetMailboxByCharIdentifier(char.charIdentifier)
+    local mailbox = GetMailboxByCharIdentifier(charData.charIdentifier)
     if not mailbox then
-        DevPrint('PollUnread: mailbox not found for char_identifier=', tostring(char.charIdentifier))
+        DevPrint('PollUnread: mailbox not found for char_identifier=', tostring(charData.charIdentifier))
         NotifyClient(src, _U('MailboxNotFound'), 'error', 5000)
         cb(false)
         return
@@ -343,7 +326,7 @@ BccUtils.RPC:Register('bcc-mailbox:PollUnread', function(params, cb, src)
 
     local mailboxIdStr = tostring(mailbox.mailbox_id)
     local postalCodeStr = mailbox.postal_code and tostring(mailbox.postal_code) or ''
-    local charIdStr     = tostring(char.charIdentifier)
+    local charIdStr     = tostring(charData.charIdentifier)
 
     local unreadCount = CountUnreadForRecipient(mailboxIdStr, postalCodeStr, charIdStr)
     DevPrint('PollUnread: unread=', unreadCount, ' for char_identifier=', charIdStr)
@@ -351,7 +334,7 @@ BccUtils.RPC:Register('bcc-mailbox:PollUnread', function(params, cb, src)
     cb(true, { unread = unreadCount })
 end)
 
-BccUtils.RPC:Register('bcc-mailbox:MarkMailRead', function(params, cb, src)
+BccUtils.RPC:Register('lxr-mailbox:MarkMailRead', function(params, cb, src)
     DevPrint('MarkMailRead RPC called. src=', src, 'params=', params)
 
     local numericId = params and tonumber(params.mailId)
@@ -365,25 +348,16 @@ BccUtils.RPC:Register('bcc-mailbox:MarkMailRead', function(params, cb, src)
     if markRead == nil then markRead = true end
     local desiredState = markRead and 1 or 0
 
-    local user = VORPcore.getUser(src)
-    if not user then
-        DevPrint('MarkMailRead: invalid player/char (no user)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'user_not_found' })
+    local charData = Framework.GetCharacterData(src)
+    if not charData then
+        DevPrint('user or character not found')
+        cb(false)
         return
     end
 
-    local char = user.getUsedCharacter
-    if not char then
-        DevPrint('MarkMailRead: invalid player/char (no character)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'character_not_found' })
-        return
-    end
-
-    local mailbox = GetMailboxByCharIdentifier(char.charIdentifier)
+    local mailbox = GetMailboxByCharIdentifier(charData.charIdentifier)
     if not mailbox then
-        DevPrint('MarkMailRead: mailbox not found for char_identifier=', tostring(char.charIdentifier))
+        DevPrint('MarkMailRead: mailbox not found for char_identifier=', tostring(charData.charIdentifier))
         NotifyClient(src, _U('MailboxNotFound'), 'error', 5000)
         cb(false, { reason = 'mailbox_not_found' })
         return
@@ -426,8 +400,8 @@ BccUtils.RPC:Register('bcc-mailbox:MarkMailRead', function(params, cb, src)
 
     if updated > 0 then
         DevPrint('MarkMailRead: updated. id=', numericId, ' new_state=', desiredState)
-        if Config.CoreHudIntegration and Config.CoreHudIntegration.enabled and char and char.charIdentifier then
-            exports['bcc-corehud']:RefreshMailboxCore(char.charIdentifier)
+        if Config.CoreHudIntegration and Config.CoreHudIntegration.enabled and charData.charIdentifier then
+            exports['bcc-corehud']:RefreshMailboxCore(charData.charIdentifier)
         end
         cb(true, { readState = desiredState })
         return
@@ -437,22 +411,13 @@ BccUtils.RPC:Register('bcc-mailbox:MarkMailRead', function(params, cb, src)
     cb(false, { reason = 'update_failed' })
 end)
 
-BccUtils.RPC:Register('bcc-mailbox:PurchaseLetter', function(params, cb, src)
+BccUtils.RPC:Register('lxr-mailbox:PurchaseLetter', function(params, cb, src)
     DevPrint('PurchaseLetter RPC called. src=', src, 'params=', params)
 
-    local user = VORPcore.getUser(src)
-    if not user then
-        DevPrint('PurchaseLetter: invalid player/char (no user)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'user_not_found' })
-        return
-    end
-
-    local char = user.getUsedCharacter
-    if not char then
-        DevPrint('PurchaseLetter: invalid player/char (no character)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'character_not_found' })
+    local charData = Framework.GetCharacterData(src)
+    if not charData then
+        DevPrint('user or character not found')
+        cb(false)
         return
     end
 
@@ -491,7 +456,7 @@ BccUtils.RPC:Register('bcc-mailbox:PurchaseLetter', function(params, cb, src)
     end
 
     local cost = tonumber(Config.LetterPurchaseCost or 0) or 0
-    local balance = tonumber(char.money or 0) or 0
+    local balance = tonumber(charData.money or 0) or 0
     if cost > 0 and balance < cost then
         DevPrint('PurchaseLetter: insufficient funds. have=', balance, 'need=', cost)
         NotifyClient(src, _U('LetterPurchaseNoFunds'), 'error', 5000)
@@ -501,7 +466,7 @@ BccUtils.RPC:Register('bcc-mailbox:PurchaseLetter', function(params, cb, src)
 
     local itemName = Config.MailboxItem or 'letter'
 
-    exports.vorp_inventory:canCarryItem(src, itemName, 1, function(canCarry)
+    Framework.CanCarryItem(src, itemName, 1, function(canCarry)
         if not canCarry then
             DevPrint('PurchaseLetter: cannot carry item. src=', src)
             NotifyClient(src, _U('LetterInventoryFull'), 'error', 5000)
@@ -510,7 +475,7 @@ BccUtils.RPC:Register('bcc-mailbox:PurchaseLetter', function(params, cb, src)
         end
 
         if cost > 0 then
-            char.removeCurrency(0, cost)
+            Framework.RemoveCurrency(src, cost)
         end
 
         local metadata
@@ -524,9 +489,9 @@ BccUtils.RPC:Register('bcc-mailbox:PurchaseLetter', function(params, cb, src)
         end
 
         if metadata then
-            exports.vorp_inventory:addItem(src, itemName, 1, metadata)
+            Framework.AddItem(src, itemName, 1, metadata)
         else
-            exports.vorp_inventory:addItem(src, itemName, 1)
+            Framework.AddItem(src, itemName, 1)
         end
 
         NotifyClient(src, _U('LetterPurchased'), 'success', 5000)
@@ -534,27 +499,18 @@ BccUtils.RPC:Register('bcc-mailbox:PurchaseLetter', function(params, cb, src)
     end)
 end)
 
-BccUtils.RPC:Register('bcc-mailbox:RegisterMailbox', function(params, cb, src)
+BccUtils.RPC:Register('lxr-mailbox:RegisterMailbox', function(params, cb, src)
     DevPrint('RegisterMailbox RPC called. src=', src, 'params=', params)
 
-    local user = VORPcore.getUser(src)
-    if not user then
-        DevPrint('RegisterMailbox: invalid player/char (no user)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'user_not_found' })
-        return
-    end
-
-    local char = user.getUsedCharacter
-    if not char then
-        DevPrint('RegisterMailbox: invalid player/char (no character)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'character_not_found' })
+    local charData = Framework.GetCharacterData(src)
+    if not charData then
+        DevPrint('user or character not found')
+        cb(false)
         return
     end
 
     local fee = tonumber(Config.RegistrationFee) or 0
-    local balance = tonumber(char.money or 0) or 0
+    local balance = tonumber(charData.money or 0) or 0
     if balance < fee then
         DevPrint('RegisterMailbox: insufficient funds. have=', balance, 'need=', fee)
         NotifyClient(src, _U('MailboxRegistrationFee'), 'error', 5000)
@@ -563,11 +519,11 @@ BccUtils.RPC:Register('bcc-mailbox:RegisterMailbox', function(params, cb, src)
     end
 
     -- charge fee (cash = currency 0 like your other handlers)
-    char.removeCurrency(0, fee)
+    Framework.RemoveCurrency(src, fee)
 
-    local charIdentifier = char.charIdentifier
-    local firstName      = char.firstname
-    local lastName       = char.lastname
+    local charIdentifier = charData.charIdentifier
+    local firstName      = charData.firstname
+    local lastName       = charData.lastname
     local postalCode     = GenerateUniquePostalCode()
 
     local insertId = CreateMailbox(charIdentifier, firstName, lastName, postalCode)
@@ -594,7 +550,7 @@ BccUtils.RPC:Register('bcc-mailbox:RegisterMailbox', function(params, cb, src)
     })
 end)
 
-BccUtils.RPC:Register('bcc-mailbox:DeleteMail', function(params, cb, src)
+BccUtils.RPC:Register('lxr-mailbox:DeleteMail', function(params, cb, src)
     DevPrint('DeleteMail RPC called. src=', src, 'params=', params)
 
     local mailId = params and tonumber(params.mailId)
@@ -604,27 +560,18 @@ BccUtils.RPC:Register('bcc-mailbox:DeleteMail', function(params, cb, src)
         return
     end
 
-    -- match the SellGold-style user/char validation
-    local user = VORPcore.getUser(src)
-    if not user then
-        DevPrint('DeleteMail: invalid player/char (no user)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'user_not_found' })
-        return
-    end
-    local char = user.getUsedCharacter
-    if not char then
-        DevPrint('DeleteMail: invalid player/char (no character)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'character_not_found' })
+    local charData = Framework.GetCharacterData(src)
+    if not charData then
+        DevPrint('DeleteMail: user or character not found')
+        cb(false)
         return
     end
 
     local affected = DeleteMailById(mailId)
     if affected > 0 then
         DevPrint('DeleteMail: deleted id=', mailId)
-        if Config.CoreHudIntegration and Config.CoreHudIntegration.enabled and char and char.charIdentifier then
-            exports['bcc-corehud']:RefreshMailboxCore(char.charIdentifier)
+        if Config.CoreHudIntegration and Config.CoreHudIntegration.enabled and charData.charIdentifier then
+            exports['bcc-corehud']:RefreshMailboxCore(charData.charIdentifier)
         end
         NotifyClient(src, _U('MailDeleted'), 'success', 5000)
         cb(true)
@@ -636,28 +583,19 @@ BccUtils.RPC:Register('bcc-mailbox:DeleteMail', function(params, cb, src)
     cb(false, { reason = 'delete_failed' })
 end)
 
-BccUtils.RPC:Register('bcc-mailbox:GetRecipients', function(params, cb, src)
+BccUtils.RPC:Register('lxr-mailbox:GetRecipients', function(params, cb, src)
     DevPrint('GetRecipients RPC called. src=', src, 'params=', params)
 
-    local user = VORPcore.getUser(src)
-    if not user then
-        DevPrint('GetRecipients: invalid player/char (no user)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'user_not_found' })
+    local charData = Framework.GetCharacterData(src)
+    if not charData then
+        DevPrint('user or character not found')
+        cb(false)
         return
     end
 
-    local char = user.getUsedCharacter
-    if not char then
-        DevPrint('GetRecipients: invalid player/char (no character)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'character_not_found' })
-        return
-    end
-
-    local mailbox = MailboxAPI:GetMailboxByCharIdentifier(char.charIdentifier)
+    local mailbox = MailboxAPI:GetMailboxByCharIdentifier(charData.charIdentifier)
     if not mailbox then
-        DevPrint('GetRecipients: mailbox not found for char_identifier=', tostring(char.charIdentifier))
+        DevPrint('GetRecipients: mailbox not found for char_identifier=', tostring(charData.charIdentifier))
         NotifyClient(src, _U('MailboxNotFound'), 'error', 5000)
         cb(false, { reason = 'mailbox_not_found' })
         return
@@ -689,28 +627,19 @@ BccUtils.RPC:Register('bcc-mailbox:GetRecipients', function(params, cb, src)
     cb(true, { contacts = contacts, count = #contacts })
 end)
 
-BccUtils.RPC:Register('bcc-mailbox:GetContacts', function(params, cb, src)
+BccUtils.RPC:Register('lxr-mailbox:GetContacts', function(params, cb, src)
     DevPrint('GetContacts RPC called. src=', src, 'params=', params)
 
-    local user = VORPcore.getUser(src)
-    if not user then
-        DevPrint('GetContacts: invalid player/char (no user)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'user_not_found' })
+    local charData = Framework.GetCharacterData(src)
+    if not charData then
+        DevPrint('user or character not found')
+        cb(false)
         return
     end
 
-    local char = user.getUsedCharacter
-    if not char then
-        DevPrint('GetContacts: invalid player/char (no character)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'character_not_found' })
-        return
-    end
-
-    local mailbox = MailboxAPI:GetMailboxByCharIdentifier(char.charIdentifier)
+    local mailbox = MailboxAPI:GetMailboxByCharIdentifier(charData.charIdentifier)
     if not mailbox then
-        DevPrint('GetContacts: mailbox not found for char_identifier=', tostring(char.charIdentifier))
+        DevPrint('GetContacts: mailbox not found for char_identifier=', tostring(charData.charIdentifier))
         NotifyClient(src, _U('MailboxNotFound'), 'error', 5000)
         cb(false, { reason = 'mailbox_not_found' })
         return
@@ -740,30 +669,22 @@ BccUtils.RPC:Register('bcc-mailbox:GetContacts', function(params, cb, src)
     cb(true, { contacts = contacts, count = #contacts })
 end)
 
-BccUtils.RPC:Register('bcc-mailbox:AddContact', function(params, cb, src)
+BccUtils.RPC:Register('lxr-mailbox:AddContact', function(params, cb, src)
     DevPrint('AddContact RPC called. src=', src, 'params=', params)
 
     local contactCode  = params and params.contactCode
     local contactAlias = params and params.contactAlias
 
-    local user = VORPcore.getUser(src)
-    if not user then
-        DevPrint('AddContact: invalid player/char (no user)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'user_not_found' })
-        return
-    end
-    local char = user.getUsedCharacter
-    if not char then
-        DevPrint('AddContact: invalid player/char (no character)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'character_not_found' })
+    local charData = Framework.GetCharacterData(src)
+    if not charData then
+        DevPrint('AddContact: user or character not found')
+        cb(false)
         return
     end
 
-    local ownerMailbox = MailboxAPI:GetMailboxByCharIdentifier(char.charIdentifier)
+    local ownerMailbox = MailboxAPI:GetMailboxByCharIdentifier(charData.charIdentifier)
     if not ownerMailbox then
-        DevPrint('AddContact: mailbox not found for char_identifier=', tostring(char.charIdentifier))
+        DevPrint('AddContact: mailbox not found for char_identifier=', tostring(charData.charIdentifier))
         NotifyClient(src, _U('MailboxNotFound'), 'error', 5000)
         cb(false, { reason = 'mailbox_not_found' })
         return
@@ -833,29 +754,21 @@ BccUtils.RPC:Register('bcc-mailbox:AddContact', function(params, cb, src)
     cb(true, { contacts = contacts, count = #contacts })
 end)
 
-BccUtils.RPC:Register('bcc-mailbox:RemoveContact', function(params, cb, src)
+BccUtils.RPC:Register('lxr-mailbox:RemoveContact', function(params, cb, src)
     DevPrint('RemoveContact RPC called. src=', src, 'params=', params)
 
     local contactId = params and tonumber(params.contactId)
 
-    local user = VORPcore.getUser(src)
-    if not user then
-        DevPrint('RemoveContact: invalid player/char (no user)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'user_not_found' })
-        return
-    end
-    local char = user.getUsedCharacter
-    if not char then
-        DevPrint('RemoveContact: invalid player/char (no character)')
-        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
-        cb(false, { reason = 'character_not_found' })
+    local charData = Framework.GetCharacterData(src)
+    if not charData then
+        DevPrint('RemoveContact: user or character not found')
+        cb(false)
         return
     end
 
-    local ownerMailbox = MailboxAPI:GetMailboxByCharIdentifier(char.charIdentifier)
+    local ownerMailbox = MailboxAPI:GetMailboxByCharIdentifier(charData.charIdentifier)
     if not ownerMailbox then
-        DevPrint('RemoveContact: mailbox not found for char_identifier=', tostring(char.charIdentifier))
+        DevPrint('RemoveContact: mailbox not found for char_identifier=', tostring(charData.charIdentifier))
         NotifyClient(src, _U('MailboxNotFound'), 'error', 5000)
         cb(false, { reason = 'mailbox_not_found' })
         return
@@ -911,5 +824,3 @@ function GetPlayers()
     end
     return players
 end
-
-BccUtils.Versioner.checkFile(GetCurrentResourceName(), 'https://github.com/BryceCanyonCounty/bcc-mailbox')

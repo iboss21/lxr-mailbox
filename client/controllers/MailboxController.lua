@@ -1,3 +1,22 @@
+--[[
+    ██╗     ██╗  ██╗██████╗        ███╗   ███╗ █████╗ ██╗██╗     ██████╗  ██████╗ ██╗  ██╗
+    ██║     ╚██╗██╔╝██╔══██╗       ████╗ ████║██╔══██╗██║██║     ██╔══██╗██╔═══██╗╚██╗██╔╝
+    ██║      ╚███╔╝ ██████╔╝█████╗ ██╔████╔██║███████║██║██║     ██████╔╝██║   ██║ ╚███╔╝ 
+    ██║      ██╔██╗ ██╔══██╗╚════╝ ██║╚██╔╝██║██╔══██║██║██║     ██╔══██╗██║   ██║ ██╔██╗ 
+    ███████╗██╔╝ ██╗██║  ██║       ██║ ╚═╝ ██║██║  ██║██║███████╗██████╔╝╚██████╔╝██╔╝ ██╗
+    ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝       ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝
+
+    🐺 LXR Mailbox System - Mailbox Controller (Client)
+
+    Handles proximity detection, prompt display, RPC event handlers,
+    pigeon spawning, and periodic unread-mail polling.
+
+    ═══════════════════════════════════════════════════════════════════════════════
+    Developer:   iBoss21 / The Lux Empire  |  https://www.wolves.land
+    © 2026 iBoss21 / The Lux Empire | wolves.land | All Rights Reserved
+    ═══════════════════════════════════════════════════════════════════════════════
+]]
+
 local BccUtils = exports['bcc-utils'].initiate()
 
 Mailbox = Mailbox or {}
@@ -67,7 +86,7 @@ end
 
 Mailbox.ApplyMailList = applyMailList
 
-BccUtils.RPC:Register('bcc-mailbox:checkMailNotification', function(params, cb)
+BccUtils.RPC:Register('lxr-mailbox:checkMailNotification', function(params, cb)
     local unreadCount = params and params.unreadCount
     devPrint("checkMailNotification", unreadCount)
 
@@ -76,7 +95,7 @@ BccUtils.RPC:Register('bcc-mailbox:checkMailNotification', function(params, cb)
         Notify(_U('NewMailNotification'), "info", 5000)
     end
 
-    local ok, data = BccUtils.RPC:Call("bcc-mailbox:FetchMail", {})
+    local ok, data = BccUtils.RPC:Call("lxr-mailbox:FetchMail", {})
     if ok and data then
         applyMailList(data.mails or {}, { skipNotify = true })
     end
@@ -84,7 +103,7 @@ BccUtils.RPC:Register('bcc-mailbox:checkMailNotification', function(params, cb)
     if cb then cb(true) end
 end)
 
-BccUtils.RPC:Register('bcc-mailbox:mailboxStatus', function(params, cb)
+BccUtils.RPC:Register('lxr-mailbox:mailboxStatus', function(params, cb)
     local hasMailbox  = params and params.hasMailbox
     local mailboxId   = params and params.mailboxId
     local playerName  = params and params.playerName
@@ -163,7 +182,7 @@ CreateThread(function()
                 if mailboxPrompt:HasCompleted() then
                     devPrint(_U('MailboxPromptCompleted'))
 
-                    local ok, data = BccUtils.RPC:CallAsync("bcc-mailbox:CheckMailbox", {})
+                    local ok, data = BccUtils.RPC:CallAsync("lxr-mailbox:CheckMailbox", {})
                     if ok and data then
                         applyMailboxStatus({
                             hasMailbox = data.hasMailbox,
@@ -196,7 +215,7 @@ CreateThread(function()
     while true do
         Wait(60000)
 
-        local ok, data = BccUtils.RPC:CallAsync("bcc-mailbox:UpdateMailboxInfo", {})
+        local ok, data = BccUtils.RPC:CallAsync("lxr-mailbox:UpdateMailboxInfo", {})
         if ok and data then
             applyMailboxStatus({
                 mailboxId  = data.mailboxId or Mailbox.State.playermailboxId,
@@ -211,9 +230,9 @@ CreateThread(function()
     local intervalMs = math.max(60000, math.floor(intervalMinutes * 60000))
     Wait(30000)
     while true do
-        local ok, poll = BccUtils.RPC:CallAsync("bcc-mailbox:PollUnread", {})
+        local ok, poll = BccUtils.RPC:CallAsync("lxr-mailbox:PollUnread", {})
         if ok and poll and (tonumber(poll.unread or 0) or 0) > 0 then
-            BccUtils.RPC:Notify('bcc-mailbox:checkMailNotification', { unreadCount = poll.unread })
+            BccUtils.RPC:Notify('lxr-mailbox:checkMailNotification', { unreadCount = poll.unread })
         end
         Wait(intervalMs)
     end
