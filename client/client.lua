@@ -1,4 +1,7 @@
-local VORPcore = exports.vorp_core:GetCore()
+local VORPcore = nil
+if Config.Framework == 'vorp' then
+    pcall(function() VORPcore = exports.vorp_core:GetCore() end)
+end
 local FeatherMenu = exports['feather-menu'].initiate()
 local BccUtils = exports['bcc-utils'].initiate()
 local BlipsCreated = {}
@@ -40,7 +43,7 @@ function Notify(message, typeOrDuration, maybeDuration)
     end
 end
 
-BccUtils.RPC:Register("bcc-mailbox:NotifyClient", function(data)
+BccUtils.RPC:Register("lxr-mailbox:NotifyClient", function(data)
     if not data then return end
     Notify(data.message, data.type, data.duration)
 end)
