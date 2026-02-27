@@ -17,7 +17,6 @@
     ═══════════════════════════════════════════════════════════════════════════════
 ]]
 
-local VORPcore = exports.vorp_core:GetCore()
 local VORPcore = nil
 if Config.Framework == 'vorp' then
     pcall(function() VORPcore = exports.vorp_core:GetCore() end)
