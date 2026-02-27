@@ -18,11 +18,15 @@
 ]]
 
 if Config.devMode then
-    function DevPrint(message)
-        print("^1[DEV MODE] ^4" .. message .. "^0")
+    function DevPrint(...)
+        local parts = {}
+        for i = 1, select('#', ...) do
+            parts[i] = tostring(select(i, ...))
+        end
+        print("^1[DEV | lxr-mailbox] ^4" .. table.concat(parts, ' ') .. "^0")
     end
 else
-    function DevPrint(message) end -- No-op if DevMode is disabled
+    function DevPrint(...) end -- no-op when devMode is off
 end
 
 function NotifyClient(src, message, type, duration)

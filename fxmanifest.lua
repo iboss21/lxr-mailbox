@@ -46,6 +46,37 @@ lua54 'yes'
 author 'iBoss21 / The Lux Empire'
 description '🐺 LXR Mailbox System - wolves.land | Multi-framework in-game mailbox for RedM'
 version '1.2.0'
+    ███╗   ███╗ █████╗ ██╗██╗     ██████╗  ██████╗ ██╗  ██╗
+    ████╗ ████║██╔══██╗██║██║     ██╔══██╗██╔═══██╗╚██╗██╔╝
+    ██╔████╔██║███████║██║██║     ██████╔╝██║   ██║ ╚███╔╝
+    ██║╚██╔╝██║██╔══██║██║██║     ██╔══██╗██║   ██║ ██╔██╗
+    ██║ ╚═╝ ██║██║  ██║██║███████╗██████╔╝╚██████╔╝██╔╝ ██╗
+    ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝
+
+    🐺 LXR Mailbox System — fxmanifest.lua
+    The Land of Wolves | wolves.land
+
+    ═══════════════════════════════════════════════════════
+    Developer:   iBoss21 / The Lux Empire
+    Website:     https://www.wolves.land
+    Discord:     https://discord.gg/CrKcWdfd3A
+    Store:       https://theluxempire.tebex.io
+    © 2026 iBoss21 / The Lux Empire | wolves.land | All Rights Reserved
+    ═══════════════════════════════════════════════════════
+]]
+
+fx_version 'cerulean'
+game       'rdr3'
+
+rdr3_warning 'I acknowledge that this is a prerelease build of RedM, and I am aware my resources *will* become incompatible once RedM ships.'
+
+name        'lxr-mailbox'
+description '🐺 LXR Mailbox System — The Land of Wolves | wolves.land'
+author      'iBoss21 / The Lux Empire'
+version     '1.2.0'
+url         'https://www.wolves.land'
+
+lua54 'yes'
 
 shared_scripts {
     'config.lua',
@@ -63,6 +94,7 @@ client_scripts {
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
+    'server/framework_bridge.lua',
     'server/API.lua',
     'server/controllers.lua',
     'server/helpers.lua',
@@ -70,8 +102,19 @@ server_scripts {
     'server/server.lua',
 }
 
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- HARD DEPENDENCIES (always required)
+-- ═══════════════════════════════════════════════════════════════════════════════
 dependency {
     'oxmysql',
     'feather-menu',
     'bcc-utils',
 }
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- FRAMEWORK DEPENDENCIES — uncomment the one that matches your server
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- LXR-Core  (Primary):  requires 'lxr-core'
+-- RSG-Core  (Primary):  requires 'rsg-core'
+-- VORP      (Legacy):   requires 'vorp_core', 'vorp_character', 'vorp_inventory'
+-- ═══════════════════════════════════════════════════════════════════════════════
