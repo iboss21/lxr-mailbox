@@ -39,9 +39,6 @@ local function findPlayerByCharIdentifier(charIdentifier)
     if not charIdentifier then return nil end
     for _, playerId in ipairs(GetPlayers and GetPlayers() or {}) do
         local src = tonumber(playerId)
-        local charData = Framework.GetCharacterData(src)
-        if charData and tostring(charData.charIdentifier) == tostring(charIdentifier) then
-            return src
         local player = Framework.GetUser(src)
         if player then
             local char = Framework.GetCharacter(player)
