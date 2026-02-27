@@ -8,7 +8,7 @@ local sanitizePostalCodeInput = Mailbox.sanitizePostalCodeInput or function(v) r
 
 local function loadContacts(nextStep)
     -- capture BOTH return values
-    local ok, data = BccUtils.RPC:CallAsync("bcc-mailbox:GetContacts", {})
+    local ok, data = BccUtils.RPC:CallAsync("lxr-mailbox:GetContacts", {})
 
     if ok and data then
         Mailbox.State.contacts = data.contacts or {}
@@ -23,7 +23,7 @@ local function loadContacts(nextStep)
 end
 
 local function fetchMailList(options)
-    local ok, data = BccUtils.RPC:CallAsync("bcc-mailbox:FetchMail", {})
+    local ok, data = BccUtils.RPC:CallAsync("lxr-mailbox:FetchMail", {})
 
     if ok and data and Mailbox.ApplyMailList then
         Mailbox.ApplyMailList(data.mails or {}, options)
@@ -32,7 +32,7 @@ end
 
 local function purchaseLetter()
     devPrint('purchaseLetter request')
-    local ok, data = BccUtils.RPC:CallAsync("bcc-mailbox:PurchaseLetter", {})
+    local ok, data = BccUtils.RPC:CallAsync("lxr-mailbox:PurchaseLetter", {})
     if not ok then
         devPrint('Purchase letter failed')
     end
@@ -103,7 +103,7 @@ function OpenMailboxMenu(hasMailbox)
             style = {}
         }, function()
             devPrint("Register Mailbox button pressed")
-            local ok, data = BccUtils.RPC:CallAsync("bcc-mailbox:RegisterMailbox", {})
+            local ok, data = BccUtils.RPC:CallAsync("lxr-mailbox:RegisterMailbox", {})
             if ok and data then
                 if Mailbox.ApplyMailboxStatus then
                     Mailbox.ApplyMailboxStatus({
@@ -267,7 +267,7 @@ function OpenMessagePage(mail)
     if mailId and mailId > 0 then
         if tonumber(mail.is_read or 0) ~= 1 then
             -- ⬇️ capture BOTH return values
-            local ok, data = BccUtils.RPC:CallAsync("bcc-mailbox:MarkMailRead", { mailId = mailId, read = true })
+            local ok, data = BccUtils.RPC:CallAsync("lxr-mailbox:MarkMailRead", { mailId = mailId, read = true })
 
             if ok and data then
                 mail.is_read = tonumber(data.readState or 1) or 1
@@ -323,7 +323,7 @@ function OpenMessagePage(mail)
         local desired = markUnread and 0 or 1
         if current == desired then return end
 
-        local ok, data = BccUtils.RPC:CallAsync("bcc-mailbox:MarkMailRead", { mailId = mail.id, read = not markUnread })
+        local ok, data = BccUtils.RPC:CallAsync("lxr-mailbox:MarkMailRead", { mailId = mail.id, read = not markUnread })
         if ok and data then
             local state = tonumber(data.readState or desired) or desired
             mail.is_read = state
@@ -367,7 +367,7 @@ function OpenMessagePage(mail)
         style = {},
     }, function()
         Mailbox.State.suppressMailNotify = true
-        BccUtils.RPC:CallAsync("bcc-mailbox:DeleteMail", { mailId = mail.id })
+        BccUtils.RPC:CallAsync("lxr-mailbox:DeleteMail", { mailId = mail.id })
         fetchMailList({ skipNotify = true })
     end)
 
@@ -577,7 +577,7 @@ function OpenSendMessagePage(defaults)
             return
         end
         devPrint("recipientPostalCode:", tostring(sendCode), "subjectTitle:", subjectTitle)
-        BccUtils.RPC:CallAsync("bcc-mailbox:SendMail", {
+        BccUtils.RPC:CallAsync("lxr-mailbox:SendMail", {
             recipientPostalCode = sendCode,
             subject = subjectTitle,
             message = mailMessage
@@ -657,7 +657,7 @@ function OpenManageContactsPage()
             style = {},
         }, function()
             devPrint("Removing contact:", label)
-            local ok, data = BccUtils.RPC:CallAsync("bcc-mailbox:RemoveContact", { contactId = contact.id })
+            local ok, data = BccUtils.RPC:CallAsync("lxr-mailbox:RemoveContact", { contactId = contact.id })
             if ok and data then
                 Mailbox.State.contacts = data.contacts or {}
                 OpenManageContactsPage()
@@ -743,7 +743,7 @@ function OpenAddContactPage()
         slot = "footer",
         style = {},
     }, function()
-        local ok, data = BccUtils.RPC:CallAsync("bcc-mailbox:AddContact", {
+        local ok, data = BccUtils.RPC:CallAsync("lxr-mailbox:AddContact", {
             contactCode  = contactCodeInput,
             contactAlias = contactAliasInput
         })

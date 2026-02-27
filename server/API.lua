@@ -4,7 +4,7 @@ exports("getMailboxAPI", function()
     return MailboxAPI
 end)
 
-local VORPcore = exports.vorp_core:GetCore()
+local Framework = LXRMailbox.Framework
 local DEFAULT_SYSTEM_SENDER = "Postmaster"
 
 local function sanitizeString(value)
@@ -18,12 +18,12 @@ end
 
 local function findPlayerByCharIdentifier(charIdentifier)
     if not charIdentifier then return nil end
-    for _, playerId in ipairs(GetPlayers()) do
+    for _, playerId in ipairs(GetPlayers and GetPlayers() or {}) do
         local src = tonumber(playerId)
-        local user = VORPcore.getUser(src)
-        if user then
-            local character = user.getUsedCharacter
-            if character and tostring(character.charIdentifier) == tostring(charIdentifier) then
+        local player = Framework.GetUser(src)
+        if player then
+            local char = Framework.GetCharacter(player)
+            if char and tostring(Framework.GetCharIdentifier(char)) == tostring(charIdentifier) then
                 return src
             end
         end
@@ -153,7 +153,7 @@ function MailboxAPI:SendMailToMailbox(mailboxId, subject, message, options)
             )
 
             if (unreadCount or 0) > 0 then
-                BccUtils.RPC:Notify('bcc-mailbox:checkMailNotification', { unreadCount = unreadCount }, notifTarget)
+                BccUtils.RPC:Notify('lxr-mailbox:checkMailNotification', { unreadCount = unreadCount }, notifTarget)
             end
         end
     end

@@ -1,41 +1,73 @@
-fx_version "adamant"
+--[[
+    ███╗   ███╗ █████╗ ██╗██╗     ██████╗  ██████╗ ██╗  ██╗
+    ████╗ ████║██╔══██╗██║██║     ██╔══██╗██╔═══██╗╚██╗██╔╝
+    ██╔████╔██║███████║██║██║     ██████╔╝██║   ██║ ╚███╔╝
+    ██║╚██╔╝██║██╔══██║██║██║     ██╔══██╗██║   ██║ ██╔██╗
+    ██║ ╚═╝ ██║██║  ██║██║███████╗██████╔╝╚██████╔╝██╔╝ ██╗
+    ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝
+
+    🐺 LXR Mailbox System — fxmanifest.lua
+    The Land of Wolves | wolves.land
+
+    ═══════════════════════════════════════════════════════
+    Developer:   iBoss21 / The Lux Empire
+    Website:     https://www.wolves.land
+    Discord:     https://discord.gg/CrKcWdfd3A
+    Store:       https://theluxempire.tebex.io
+    © 2026 iBoss21 / The Lux Empire | wolves.land | All Rights Reserved
+    ═══════════════════════════════════════════════════════
+]]
+
+fx_version 'cerulean'
+game       'rdr3'
+
 rdr3_warning 'I acknowledge that this is a prerelease build of RedM, and I am aware my resources *will* become incompatible once RedM ships.'
-game "rdr3"
+
+name        'lxr-mailbox'
+description '🐺 LXR Mailbox System — The Land of Wolves | wolves.land'
+author      'iBoss21 / The Lux Empire'
+version     '1.2.0'
+url         'https://www.wolves.land'
 
 lua54 'yes'
-author 'BCC Team'
-
-description 'In-game MailBox System'
 
 shared_scripts {
-  'config.lua',
-  'shared/locale.lua',
-  'languages/*.lua'
+    'config.lua',
+    'shared/framework.lua',
+    'shared/locale.lua',
+    'languages/*.lua',
 }
 
 client_scripts {
-  'client/client.lua',
-  'client/controllers/*.lua',
-  'client/services/*.lua',
-  'client/menus/*.lua',
+    'client/client.lua',
+    'client/controllers/*.lua',
+    'client/services/*.lua',
+    'client/menus/*.lua',
 }
 
 server_scripts {
-  '@oxmysql/lib/MySQL.lua',
-  'server/API.lua',
-  'server/controllers.lua',
-  'server/helpers.lua',
-  'server/dbUpdater.lua',
-  'server/server.lua',
+    '@oxmysql/lib/MySQL.lua',
+    'server/framework_bridge.lua',
+    'server/API.lua',
+    'server/controllers.lua',
+    'server/helpers.lua',
+    'server/dbUpdater.lua',
+    'server/server.lua',
 }
 
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- HARD DEPENDENCIES (always required)
+-- ═══════════════════════════════════════════════════════════════════════════════
 dependency {
-	'vorp_core',
-	'vorp_character',
-	'vorp_inventory',
-  'oxmysql',
-	'feather-menu',
-	'bcc-utils'
+    'oxmysql',
+    'feather-menu',
+    'bcc-utils',
 }
 
-version '1.1.1'
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- FRAMEWORK DEPENDENCIES — uncomment the one that matches your server
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- LXR-Core  (Primary):  requires 'lxr-core'
+-- RSG-Core  (Primary):  requires 'rsg-core'
+-- VORP      (Legacy):   requires 'vorp_core', 'vorp_character', 'vorp_inventory'
+-- ═══════════════════════════════════════════════════════════════════════════════
