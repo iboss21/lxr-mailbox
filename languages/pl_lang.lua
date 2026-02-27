@@ -1,3 +1,9 @@
+--[[
+    🐺 LXR Mailbox System - Polish Locale (pl_lang)
+    iBoss21 / The Lux Empire | https://www.wolves.land
+    © 2026 iBoss21 / The Lux Empire | wolves.land | All Rights Reserved
+]]
+
 Locales["pl_lang"] = {
     OpenMailBox = "Otwórz",
     MailNotRegistered = "Nie zarejestrowano",
