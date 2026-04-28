@@ -61,6 +61,12 @@ if fw == 'lxr-core' then
         player.Functions.RemoveMoney('cash', tonumber(amount) or 0)
     end
 
+    function Framework.AddMoney(player, amount)
+        local a = tonumber(amount) or 0
+        if a <= 0 or not player then return end
+        player.Functions.AddMoney('cash', a)
+    end
+
     function Framework.RegisterItemUse(itemName, callback)
         Core.Functions.CreateUseableItem(itemName, callback)
     end
