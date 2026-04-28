@@ -1,14 +1,13 @@
 --[[
-    🐺 LXR Mailbox System — fxmanifest.lua
+    LXR Mailbox - fxmanifest
 ]]
 
-fx_version 'cerulean'
-game       'rdr3'
+fx_version 'cerulean'game       'rdr3'
 
 rdr3_warning 'I acknowledge that this is a prerelease build of RedM, and I am aware my resources *will* become incompatible once RedM ships.'
 
 name        'lxr-mailbox'
-description '🐺 LXR Mailbox System — standalone postal UI | wolves.land'
+description 'LXR Mailbox - standalone postal NUI | wolves.land'
 author      'iBoss21 / The Lux Empire'
 version     '1.3.0'
 url         'https://www.wolves.land'
