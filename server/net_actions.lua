@@ -1,5 +1,20 @@
 --[[
-    LXR Mailbox - server actions + net dispatcher
+    ██╗     ██╗  ██╗██████╗        ███╗   ███╗ █████╗ ██╗██╗     ██████╗  ██████╗ ██╗  ██╗
+    ██║     ╚██╗██╔╝██╔══██╗       ████╗ ████║██╔══██╗██║██║     ██╔══██╗██╔═══██╗╚██╗██╔╝
+    ██║      ╚███╔╝ ██████╔╝█████╗ ██╔████╔██║███████║██║██║     ██████╔╝██║   ██║ ╚███╔╝
+    ██║      ██╔██╗ ██╔══██╗╚════╝ ██║╚██╔╝██║██╔══██║██║██║     ██╔══██╗██║   ██║ ██╔██╗
+    ███████╗██╔╝ ██╗██║  ██║       ██║ ╚═╝ ██║██║  ██║██║███████╗██████╔╝╚██████╔╝██╔╝ ██╗
+    ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝       ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝
+
+    🐺 LXR Mailbox System — Server Net Actions
+
+    lxr-mailbox:req dispatcher, LuaLXRMailbox.NetActions handlers, registration refunds,
+    net rate limiting, mail/contacts APIs.
+
+    ═══════════════════════════════════════════════════════════════════════════════
+    Developer:   iBoss21 / The Lux Empire  |  https://www.wolves.land
+    © 2026 iBoss21 / The Lux Empire | wolves.land | All Rights Reserved
+    ═══════════════════════════════════════════════════════════════════════════════
 ]]
 
 LXRMailbox = LXRMailbox or {}

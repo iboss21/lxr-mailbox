@@ -1,6 +1,19 @@
 --[[
-    Server-only guard: this resource must run as folder name "lxr-mailbox".
-    Loaded before other server scripts so startup aborts immediately if renamed.
+    ██╗     ██╗  ██╗██████╗        ███╗   ███╗ █████╗ ██╗██╗     ██████╗  ██████╗ ██╗  ██╗
+    ██║     ╚██╗██╔╝██╔══██╗       ████╗ ████║██╔══██╗██║██║     ██╔══██╗██╔═══██╗╚██╗██╔╝
+    ██║      ╚███╔╝ ██████╔╝█████╗ ██╔████╔██║███████║██║██║     ██████╔╝██║   ██║ ╚███╔╝
+    ██║      ██╔██╗ ██╔══██╗╚════╝ ██║╚██╔╝██║██╔══██║██║██║     ██╔══██╗██║   ██║ ██╔██╗
+    ███████╗██╔╝ ██╗██║  ██║       ██║ ╚═╝ ██║██║  ██║██║███████╗██████╔╝╚██████╔╝██╔╝ ██╗
+    ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝       ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝
+
+    🐺 LXR Mailbox System — Resource Name Guard
+
+    Server-only: folder must be named "lxr-mailbox". Loads first so startup aborts if renamed.
+
+    ═══════════════════════════════════════════════════════════════════════════════
+    Developer:   iBoss21 / The Lux Empire  |  https://www.wolves.land
+    © 2026 iBoss21 / The Lux Empire | wolves.land | All Rights Reserved
+    ═══════════════════════════════════════════════════════════════════════════════
 ]]
 
 local REQUIRED = 'lxr-mailbox'

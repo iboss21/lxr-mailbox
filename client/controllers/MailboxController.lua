@@ -1,5 +1,20 @@
 --[[
-    LXR Mailbox - proximity thread (cheap idle when away from posts)
+    ██╗     ██╗  ██╗██████╗        ███╗   ███╗ █████╗ ██╗██╗     ██████╗  ██████╗ ██╗  ██╗
+    ██║     ╚██╗██╔╝██╔══██╗       ████╗ ████║██╔══██╗██║██║     ██╔══██╗██╔═══██╗╚██╗██╔╝
+    ██║      ╚███╔╝ ██████╔╝█████╗ ██╔████╔██║███████║██║██║     ██████╔╝██║   ██║ ╚███╔╝
+    ██║      ██╔██╗ ██╔══██╗╚════╝ ██║╚██╔╝██║██╔══██║██║██║     ██╔══██╗██║   ██║ ██╔██╗
+    ███████╗██╔╝ ██╗██║  ██║       ██║ ╚═╝ ██║██║  ██║██║███████╗██████╔╝╚██████╔╝██╔╝ ██╗
+    ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝       ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝
+
+    🐺 LXR Mailbox System — Client Mailbox Controller
+
+    Proximity detection for postal locations: tiered Wait(), squared distance checks,
+    throttled help text, unread reminders, optional pigeon spawn.
+
+    ═══════════════════════════════════════════════════════════════════════════════
+    Developer:   iBoss21 / The Lux Empire  |  https://www.wolves.land
+    © 2026 iBoss21 / The Lux Empire | wolves.land | All Rights Reserved
+    ═══════════════════════════════════════════════════════════════════════════════
 ]]
 
 Mailbox = Mailbox or {}
