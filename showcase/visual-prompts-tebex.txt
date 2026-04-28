@@ -1,0 +1,44 @@
+LXR MAILBOX — Tebex / Discord showcase images (RedM Engineering visual workflow)
+================================================================================
+Use with any image generator that accepts natural-language prompts. Replace bracketed
+sections if needed. Target 1920×1080 (16:9), warm RDR2 grading, no UI overlays.
+
+IMAGE 1 — Hero (primary listing image)
+---------------------------------------
+Photorealistic Red Dead Redemption 2 multiplayer scene: a cowboy in period western
+clothing stands beside a wooden US-post-style mailbox outside a frontier town post office,
+opening an envelope with both hands. Late-afternoon golden-hour light, dusty street,
+authentic 1899 architecture. Natural handheld gameplay framing — not cinematic poster crop.
+NO text, logos, HUD, minimap, or health bars.
+
+IMAGE 2 — Close interaction
+----------------------------
+Same era and palette: close-medium shot of gloved hands folding a handwritten letter at
+a rough wooden desk inside a dim postal office — ink bottle and brass lamp visible.
+Believable gameplay moment; NO user interface elements.
+
+IMAGE 3 — Multiplayer context (optional)
+-------------------------------------------
+Two cowboys exchanging a sealed letter near hitching posts outside a Valentine-style saloon.
+Clear readable body language (sender vs receiver). Warm muted colors; NO overlays.
+
+IMAGE 4 — Environment establishing shot
+----------------------------------------
+Wide shot of a frontier town postal façade from street level — mailbox cluster or postal
+counter porch visible — establishes where players use mail on your server. NO UI.
+
+IMAGE 5 — Night variant (optional)
+-----------------------------------
+Same postal area at lantern-lit dusk — pools of warm light from windows — mailbox silhouette.
+NO HUD.
+
+IMAGE 6 — Result / payoff (optional)
+-------------------------------------
+Mailbox interior shelf rows OR player slipping letter into slot — reinforces “delivery worked”.
+NO UI text.
+
+NOTES FOR SCREENSHOT CAPTURE IN REDM (preferred over AI when shipping true fidelity)
+-------------------------------------------------------------------------------------
+1. Hide HUD/minimap via server/client toggles where allowed.
+2. Use golden hour or warm interiors — matches wolves.land gold-on-charcoal branding.
+3. Capture PNG at native resolution for Tebex (often up to 6 gallery slots).
