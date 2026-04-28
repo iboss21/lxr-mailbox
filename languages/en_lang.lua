@@ -87,5 +87,8 @@ Locales["en_lang"] = {
     LetterPurchased = 'You purchased a letter.',
     LetterPurchaseNoFunds = 'Not enough money to buy a letter.',
     LetterInventoryFull = 'Your satchel cannot carry another letter.',
-    LetterPurchaseNotNear = 'You must be at a mailbox to buy a letter.'
+    LetterPurchaseNotNear = 'You must be at a mailbox to buy a letter.',
+    MailSubjectTooLong = 'Subject is too long.',
+    MailMessageTooLong = 'Message is too long.',
+    NetRateLimited = 'Please slow down and try again.'
 }

@@ -120,6 +120,10 @@ LXRMailbox.NetActions.SendMail = function(src, params)
 
     if result == 'invalid_content' then
         NotifyClient(_source, _U('InvalidRecipient'), 'error', 5000)
+    elseif result == 'subject_too_long' then
+        NotifyClient(_source, _U('MailSubjectTooLong'), 'error', 5000)
+    elseif result == 'message_too_long' then
+        NotifyClient(_source, _U('MailMessageTooLong'), 'error', 5000)
     elseif result == 'invalid_mailbox' or result == 'mailbox_not_found' then
         NotifyClient(_source, _U('InvalidRecipient'), 'error', 5000)
     else
@@ -440,12 +444,18 @@ LXRMailbox.NetActions.RegisterMailbox = function(src, params)
 
     local insertId = CreateMailbox(charIdentifier, firstName, lastName, postalCode)
     if not insertId then
+        if fee > 0 then
+            Framework.AddMoney(user, fee)
+        end
         NotifyClient(src, _U('MailboxRegistrationFailed'), 'error', 5000)
         return { ok = false, reason = 'insert_failed' }
     end
 
     local result = GetMailboxById(insertId)
     if not result then
+        if fee > 0 then
+            Framework.AddMoney(user, fee)
+        end
         NotifyClient(src, _U('RegistrationError'), 'error', 5000)
         return { ok = false, reason = 'registration_error' }
     end
@@ -643,8 +653,37 @@ LXRMailbox.NetActions.RemoveContact = function(src, params)
     return { ok = true, contacts = contacts, count = #contacts }
 end
 
+local netReqLastTick = {}
+
+local function netRateAllowed(src)
+    local rl = Config.NetRateLimit
+    if not rl or not rl.Enabled then
+        return true
+    end
+    local interval = tonumber(rl.MinIntervalMs) or 0
+    if interval <= 0 then
+        return true
+    end
+    local now = GetGameTimer()
+    local last = netReqLastTick[src]
+    if last and (now - last) < interval then
+        return false
+    end
+    netReqLastTick[src] = now
+    return true
+end
+
+AddEventHandler('playerDropped', function()
+    netReqLastTick[source] = nil
+end)
+
 RegisterNetEvent('lxr-mailbox:req', function(reqId, action, payload)
     local src = source
+    if not netRateAllowed(src) then
+        NotifyClient(src, _U('NetRateLimited'), 'error', 3500)
+        TriggerClientEvent('lxr-mailbox:res', src, reqId, { ok = false, reason = 'rate_limited' })
+        return
+    end
     local fn = LXRMailbox.NetActions[action]
     if not fn then
         TriggerClientEvent('lxr-mailbox:res', src, reqId, { ok = false, reason = 'unknown_action' })

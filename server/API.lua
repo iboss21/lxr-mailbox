@@ -35,6 +35,17 @@ local function sanitizeString(value)
     return nil
 end
 
+local function utf8CharCount(str)
+    str = str ~= nil and tostring(str) or ''
+    if utf8 and utf8.len then
+        local ok, n = pcall(utf8.len, str)
+        if ok and type(n) == 'number' then
+            return n
+        end
+    end
+    return #str
+end
+
 local function findPlayerByCharIdentifier(charIdentifier)
     if not charIdentifier then return nil end
     for _, playerId in ipairs(GetPlayers and GetPlayers() or {}) do
@@ -142,6 +153,19 @@ function MailboxAPI:SendMailToMailbox(mailboxId, subject, message, options)
     local mailbox = self:GetMailboxById(numericMailboxId)
     if not mailbox then
         return false, 'mailbox_not_found'
+    end
+
+    subject = subject ~= nil and tostring(subject) or ''
+    message = message ~= nil and tostring(message) or ''
+
+    local ml = Config.MailLimits or {}
+    local maxSub = tonumber(ml.MaxSubjectLength) or 200
+    local maxMsg = tonumber(ml.MaxMessageLength) or 8000
+    if utf8CharCount(subject) > maxSub then
+        return false, 'subject_too_long'
+    end
+    if utf8CharCount(message) > maxMsg then
+        return false, 'message_too_long'
     end
 
     subject = sanitizeString(subject)

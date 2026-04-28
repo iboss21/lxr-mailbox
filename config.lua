@@ -104,6 +104,18 @@ Config.LetterPurchaseCost = 10               -- Cost to buy a replacement letter
 Config.LetterPurchaseRadius = 2.0            -- Distance (m) from a mailbox required to buy a letter
 Config.UnreadReminderIntervalMinutes = 15    -- Minutes between unread mail reminders
 
+--- Maximum UTF-8 character lengths enforced server-side when sending mail (API + net actions).
+Config.MailLimits = {
+    MaxSubjectLength = 200,
+    MaxMessageLength = 8000,
+}
+
+--- Per-player throttle for `lxr-mailbox:req` (milliseconds between accepted requests).
+Config.NetRateLimit = {
+    Enabled = true,
+    MinIntervalMs = 120,
+}
+
 -- ████████████████████████████████████████████████████████████████████████████████
 -- ████████████████████████ LETTER DURABILITY █████████████████████████████████████
 -- ████████████████████████████████████████████████████████████████████████████████
