@@ -112,6 +112,20 @@ function DeleteMailById(mailId)
     return normalizeAffectedRows(affected)
 end
 
+-- Deletes only if this mail belongs to the recipient (mailbox id, postal code, or char id as stored in to_char).
+function DeleteMailForRecipient(mailId, mailboxIdStr, postalCodeStr, charIdStr)
+    local affected = MySQL.update.await([[
+        DELETE FROM bcc_mailbox_messages
+        WHERE id = ? AND (to_char = ? OR to_char = ? OR to_char = ?)
+    ]], {
+        mailId,
+        tostring(mailboxIdStr),
+        tostring(postalCodeStr or ''),
+        tostring(charIdStr or ''),
+    })
+    return normalizeAffectedRows(affected)
+end
+
 function FetchContactsRows(ownerMailboxId)
     if not ownerMailboxId then return {} end
     local rows = MySQL.query.await([[

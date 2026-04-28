@@ -475,7 +475,19 @@ LXRMailbox.NetActions.DeleteMail = function(src, params)
         return { ok = false, reason = 'character_not_found' }
     end
 
-    local affected = DeleteMailById(mailId)
+    local mailbox = MailboxAPI:GetMailboxByCharIdentifier(Framework.GetCharIdentifier(char))
+    if not mailbox then
+        NotifyClient(src, _U('MailboxNotFound'), 'error', 5000)
+        return { ok = false, reason = 'mailbox_not_found' }
+    end
+
+    local charIdStr = tostring(Framework.GetCharIdentifier(char))
+    local affected = DeleteMailForRecipient(
+        mailId,
+        mailbox.mailbox_id,
+        mailbox.postal_code,
+        charIdStr
+    )
     if affected > 0 then
         RefreshMailboxHud(Framework.GetCharIdentifier(char))
         NotifyClient(src, _U('MailDeleted'), 'success', 5000)
