@@ -1,0 +1,10 @@
+---
+description: Preserve LXR ASCII header banners in scripts; add them when missing.
+alwaysApply: true
+---
+
+# LXR Mailbox — ASCII banners (mandatory)
+
+- **Never remove** the multi-line ASCII “LXR” banner block (`██` art) or the wolves.land separator / copyright footer from script file headers.
+- **When adding a new** `.lua` (or other script) file **or** opening a file that has no banner: **create** the full standard header to match existing files in this resource (see `server/helpers.lua`, `config.lua`, or `client/services/helpers.lua` for the canonical pattern).
+- Refactors and cleanups must **leave banners intact**; only add or extend comments below the banner if needed.
