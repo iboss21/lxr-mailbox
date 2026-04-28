@@ -57,11 +57,11 @@ Override by setting `Config.Framework = 'vorp_core'` (or any framework key) in `
 
 ## Dependencies
 
-| Dependency | Link |
-|------------|------|
+| Dependency | Notes |
+|------------|--------|
 | `oxmysql` | https://github.com/overextended/oxmysql |
-| `feather-menu` | https://github.com/feather-framework/feather-menu |
-| `bcc-utils` | https://github.com/BryceCanyonCounty/bcc-utils |
+
+This resource ships its **own NUI** (`html/`). No `bcc-utils`, `feather-menu`, or other UI stacks are required.
 
 > **VORP only:** `vorp_core`, `vorp_inventory`, `vorp_character` must be running when using VORP framework.
 
@@ -91,14 +91,14 @@ Config.SendMessageFee = 5          -- Cost per message sent
 Config.MailboxItem = "letter"      -- Item name used to open mailbox
 Config.LetterPurchaseCost = 10     -- Cost to buy a letter at a mailbox
 Config.SendPigeon = false          -- Enable pigeon animation
-Config.Notify = "feather-menu"     -- "feather-menu" or "vorp-core"
+Config.Notify = 'nui'              -- Built-in NUI toasts ('nui') or 'vorp-core'
 ```
 
 ---
 
 ## Usage
 
-- **Open Mailbox**: Hold the interact prompt near a mailbox location, or use the `letter` item.
+- **Open Mailbox**: Press the interact control shown near a mailbox location, or use the `letter` item (when registered).
 - **Register**: First-time players register their mailbox and receive a unique postal code.
 - **Send Mail**: Compose a letter to any postal code.
 - **Check Mail**: Browse received letters in the inbox.

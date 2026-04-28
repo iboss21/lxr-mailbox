@@ -1,83 +1,74 @@
 --[[
-    ██╗     ██╗  ██╗██████╗        ███╗   ███╗ █████╗ ██╗██╗     ██████╗  ██████╗ ██╗  ██╗
-    ██║     ╚██╗██╔╝██╔══██╗       ████╗ ████║██╔══██╗██║██║     ██╔══██╗██╔═══██╗╚██╗██╔╝
-    ██║      ╚███╔╝ ██████╔╝█████╗ ██╔████╔██║███████║██║██║     ██████╔╝██║   ██║ ╚███╔╝ 
-    ██║      ██╔██╗ ██╔══██╗╚════╝ ██║╚██╔╝██║██╔══██║██║██║     ██╔══██╗██║   ██║ ██╔██╗ 
-    ███████╗██╔╝ ██╗██║  ██║       ██║ ╚═╝ ██║██║  ██║██║███████╗██████╔╝╚██████╔╝██╔╝ ██╗
-    ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝       ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝
-
-    🐺 LXR Mailbox System - Client Entry Point
-
-    Initializes the FeatherMenu integration, notification system, blips, and
-    RPC notification handlers.
-
-    ═══════════════════════════════════════════════════════════════════════════════
-    Developer:   iBoss21 / The Lux Empire  |  https://www.wolves.land
-    © 2026 iBoss21 / The Lux Empire | wolves.land | All Rights Reserved
-    ═══════════════════════════════════════════════════════════════════════════════
+    LXR Mailbox - client bootstrap / notify / map blips
 ]]
 
 local VORPcore = nil
 if Config.Framework == 'vorp' then
-    pcall(function() VORPcore = exports.vorp_core:GetCore() end)
+    pcall(function()
+        VORPcore = exports.vorp_core:GetCore()
+    end)
 end
-local FeatherMenu = exports['feather-menu'].initiate()
-local BccUtils = exports['bcc-utils'].initiate()
-local BlipsCreated = {}
 
-Config = Config or {}
-Config.Notify = Config.Notify or "feather-menu"
+Config.Notify = Config.Notify or 'nui'
 
 function Notify(message, typeOrDuration, maybeDuration)
     if not message then return end
 
-    local notifyType = "info"
+    local notifyType = 'info'
     local notifyDuration = 6000
 
-    if type(typeOrDuration) == "string" then
+    if type(typeOrDuration) == 'string' then
         notifyType = typeOrDuration
         notifyDuration = tonumber(maybeDuration) or notifyDuration
-    elseif type(typeOrDuration) == "number" then
+    elseif type(typeOrDuration) == 'number' then
         notifyDuration = typeOrDuration
     end
 
-    if Config.Notify == "feather-menu" and FeatherMenu and FeatherMenu.Notify then
-        FeatherMenu:Notify({
+    if Config.Notify == 'nui' then
+        SendNUIMessage({
+            action = 'toast',
             message = message,
             type = notifyType,
-            autoClose = notifyDuration,
-            position = "top-center",
-            transition = "slide",
-            icon = true,
-            hideProgressBar = false,
-            rtl = false,
-            style = {},
-            toastStyle = {},
-            progressStyle = {}
         })
-    elseif Config.Notify == "vorp-core" and VORPcore and VORPcore.NotifyRightTip then
+    elseif Config.Notify == 'vorp-core' and VORPcore and VORPcore.NotifyRightTip then
         VORPcore.NotifyRightTip(message, notifyDuration)
     else
-        print("^1[lxr-mailbox] Notify called with invalid Config.Notify: " .. tostring(Config.Notify))
+        print(('^3[lxr-mailbox]^7 %s'):format(tostring(message)))
     end
 end
 
-BccUtils.RPC:Register("lxr-mailbox:NotifyClient", function(data)
-    if not data then return end
-    Notify(data.message, data.type, data.duration)
+local BlipsCreated = {}
+
+local function tryAddMailboxBlip(coords, sprite)
+    local ok, handle = pcall(function()
+        return Citizen.InvokeNative(0x554D9D53F696D002, 1664425300, coords.x, coords.y, coords.z)
+    end)
+    if ok and handle and handle ~= 0 then
+        pcall(function()
+            SetBlipSprite(handle, sprite, true)
+            SetBlipScale(handle, 0.22)
+        end)
+        return handle
+    end
+    return nil
+end
+
+CreateThread(function()
+    Wait(600)
+    for _, v in pairs(Config.MailboxLocations or {}) do
+        local c = v.coords
+        if c then
+            local h = tryAddMailboxBlip(c, v.BlipSprite or 1861010125)
+            if h then BlipsCreated[#BlipsCreated + 1] = h end
+        end
+    end
 end)
 
-function CreateBlips()
-    for _, v in pairs(Config.MailboxLocations) do
-        local blip = BccUtils.Blips:SetBlip('Mail Office', v.BlipSprite, 3.2,
-            v.coords.x, v.coords.y, v.coords.z)
-        BlipsCreated[#BlipsCreated + 1] = blip
-    end
-end
-
-CreateBlips()
-
 AddEventHandler('onResourceStop', function(resourceName)
-    for _, blips in ipairs(BlipsCreated) do blips:Remove() end
-    DevPrint('Removed blips')
+    if resourceName ~= GetCurrentResourceName() then return end
+    for _, h in ipairs(BlipsCreated) do
+        pcall(function()
+            RemoveBlip(h)
+        end)
+    end
 end)

@@ -24,7 +24,7 @@ exports("getMailboxAPI", function()
 end)
 
 local Framework = LXRMailbox.Framework
-local DEFAULT_SYSTEM_SENDER = "Postmaster"
+local DEFAULT_SYSTEM_SENDER = 'Postmaster'
 
 local function sanitizeString(value)
     if value == nil then return nil end
@@ -172,14 +172,12 @@ function MailboxAPI:SendMailToMailbox(mailboxId, subject, message, options)
             )
 
             if (unreadCount or 0) > 0 then
-                BccUtils.RPC:Notify('lxr-mailbox:checkMailNotification', { unreadCount = unreadCount }, notifTarget)
+                TriggerClientEvent('lxr-mailbox:checkMailNotification', notifTarget, { unreadCount = unreadCount })
             end
         end
     end
 
-    if Config.CoreHudIntegration and Config.CoreHudIntegration.enabled and mailbox.char_identifier then
-        exports['bcc-corehud']:RefreshMailboxCore(mailbox.char_identifier)
-    end
+    RefreshMailboxHud(mailbox.char_identifier)
 
     return true, insertedId
 end

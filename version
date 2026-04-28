@@ -1,3 +1,8 @@
+<1.3.0>
+- Standalone resource: removed feather-menu & bcc-utils; built-in NUI (`html/`); oxmysql-only dependency.
+<1.2.1>
+- Fixed FeatherMenu main mailbox pages being re-registered on every open (duplicate page IDs), which prevented the menu from rendering and left players stuck.
+
 <1.1.1>
 - Replaced client error notification with internal debug logging for mailbox update failures.
 <1.1.0>

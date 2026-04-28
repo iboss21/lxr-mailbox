@@ -29,12 +29,26 @@ else
     function DevPrint(...) end -- no-op when devMode is off
 end
 
+function RefreshMailboxHud(charIdentifier)
+    if not charIdentifier then return end
+    if not Config.CoreHudIntegration or not Config.CoreHudIntegration.enabled then return end
+    if GetResourceState('bcc-corehud') == 'started' then
+        pcall(function()
+            exports['bcc-corehud']:RefreshMailboxCore(charIdentifier)
+        end)
+    elseif GetResourceState('lxr-corehud') == 'started' then
+        pcall(function()
+            exports['lxr-corehud']:RefreshMailboxCore(charIdentifier)
+        end)
+    end
+end
+
 function NotifyClient(src, message, type, duration)
-    BccUtils.RPC:Notify("lxr-mailbox:NotifyClient", {
+    TriggerClientEvent('lxr-mailbox:notify', src, {
         message = message,
-        type = type or "info",
-        duration = duration or 4000
-    }, src)
+        type = type or 'info',
+        duration = duration or 4000,
+    })
 end
 
 local function generatePostalCode()

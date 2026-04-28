@@ -28,7 +28,7 @@
 
     ═══════════════════════════════════════════════════════════════════════════════
 
-    Version:     1.2.0
+    Version:     1.3.0
     Tags:        RedM, Georgian, SeriousRP, Whitelist, Mailbox, Economy, RP
 
     Framework Support:
@@ -122,7 +122,7 @@ Config.RegistrationFee = 20                  -- Cost to register a mailbox
 Config.SendMessageFee = 5                    -- Cost to send a message
 Config.TimePerMile = 0.1                     -- Time in seconds per mile (for delivery ETA)
 Config.SendPigeon = false                    -- Spawn a pigeon animation when sending mail
-Config.Notify = "feather-menu"               -- Notification driver: "feather-menu" | "vorp-core"
+Config.Notify = 'nui'
 
 Config.devMode = false                       -- Enable verbose debug prints
 
@@ -197,7 +197,7 @@ CreateThread(function()
         🐺 LXR MAILBOX SYSTEM — LOADED SUCCESSFULLY
         ═══════════════════════════════════════════════════════════════════════════════
 
-        Version:     1.2.0
+        Version:     1.3.0
         Server:      The Land of Wolves 🐺
         Framework:   Auto-detect enabled (LXR → RSG → VORP)
         Locations:   ]] .. #Config.MailboxLocations .. [[ mailbox locations

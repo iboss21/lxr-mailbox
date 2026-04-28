@@ -316,5 +316,5 @@ end
 -- ████████████████████████████████████████████████████████████████████████████████
 
 LXRMailbox          = LXRMailbox or {}
-LXRMailbox.Version  = '1.2.0'
+LXRMailbox.Version  = '1.3.0'
 LXRMailbox.Resource = 'lxr-mailbox'

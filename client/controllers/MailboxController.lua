@@ -1,40 +1,34 @@
 --[[
-    ██╗     ██╗  ██╗██████╗        ███╗   ███╗ █████╗ ██╗██╗     ██████╗  ██████╗ ██╗  ██╗
-    ██║     ╚██╗██╔╝██╔══██╗       ████╗ ████║██╔══██╗██║██║     ██╔══██╗██╔═══██╗╚██╗██╔╝
-    ██║      ╚███╔╝ ██████╔╝█████╗ ██╔████╔██║███████║██║██║     ██████╔╝██║   ██║ ╚███╔╝ 
-    ██║      ██╔██╗ ██╔══██╗╚════╝ ██║╚██╔╝██║██╔══██║██║██║     ██╔══██╗██║   ██║ ██╔██╗ 
-    ███████╗██╔╝ ██╗██║  ██║       ██║ ╚═╝ ██║██║  ██║██║███████╗██████╔╝╚██████╔╝██╔╝ ██╗
-    ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝       ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝
-
-    🐺 LXR Mailbox System - Mailbox Controller (Client)
-
-    Handles proximity detection, prompt display, RPC event handlers,
-    pigeon spawning, and periodic unread-mail polling.
-
-    ═══════════════════════════════════════════════════════════════════════════════
-    Developer:   iBoss21 / The Lux Empire  |  https://www.wolves.land
-    © 2026 iBoss21 / The Lux Empire | wolves.land | All Rights Reserved
-    ═══════════════════════════════════════════════════════════════════════════════
+    LXR Mailbox - proximity thread (cheap idle when away from posts)
 ]]
-
-local BccUtils = exports['bcc-utils'].initiate()
 
 Mailbox = Mailbox or {}
 local devPrint = Mailbox.devPrint or function() end
-local sanitizePostalCodeInput = (Mailbox and Mailbox.sanitizePostalCodeInput) or function(v) return tostring(v or '') end
 
-local function OpenMailboxMenuProxy(hasMailbox)
-    if type(OpenMailboxMenu) == 'function' then
-        OpenMailboxMenu(hasMailbox)
-    else
-        devPrint('OpenMailboxMenu not loaded yet')
+local INPUT_MAILBOX = 0x4CC0E2FE
+
+local INTERACT_R2 = 4.0
+local IDLE_WAIT_MS = 850
+local NEAR_POLL_MS = 45
+local HELP_REFRESH_MS = 220
+
+local mailboxCoords = {}
+do
+    for _, location in pairs(Config.MailboxLocations or {}) do
+        local c = location.coords
+        if c then
+            mailboxCoords[#mailboxCoords + 1] = c
+        end
     end
 end
 
-local function updatePostalDisplay()
-    if Mailbox.State.menuOpen and Mailbox.State.MailboxDisplay ~= nil then
-        Mailbox.State.MailboxDisplay:update({
-            value = _U('PostalCodeLabel') .. (Mailbox.State.playerPostalCode or _U('MailNotRegistered'))
+local function OpenMailboxNuiProxy(hasMailbox)
+    if Mailbox.OpenNui then
+        Mailbox.OpenNui({
+            hasMailbox = hasMailbox ~= false,
+            nearMailbox = Mailbox.State.nearMailbox,
+            postalCode = Mailbox.State.playerPostalCode,
+            mailboxId = Mailbox.State.playermailboxId,
         })
     end
 end
@@ -48,9 +42,8 @@ local function applyMailboxStatus(data, opts)
         Mailbox.State.playermailboxId = data.mailboxId or Mailbox.State.playermailboxId
         Mailbox.State.playerPostalCode = data.postalCode or Mailbox.State.playerPostalCode
     end
-    updatePostalDisplay()
     if opts and opts.openMenu then
-        OpenMailboxMenuProxy(data.hasMailbox ~= false)
+        OpenMailboxNuiProxy(data.hasMailbox ~= false)
     end
 end
 
@@ -70,101 +63,35 @@ local function applyMailList(mails, opts)
             end
         end
         if hasUnread then
-            Notify(_U('NewMailNotification'), "info", 5000)
+            Notify(_U('NewMailNotification'), 'info', 5000)
         end
-    end
-
-    local openPage = true
-    if opts and opts.openPage ~= nil then
-        openPage = opts.openPage
-    end
-
-    if openPage and type(OpenCheckMessagePage) == 'function' then
-        OpenCheckMessagePage(Mailbox.State.lastMails)
     end
 end
 
 Mailbox.ApplyMailList = applyMailList
 
-BccUtils.RPC:Register('lxr-mailbox:checkMailNotification', function(params, cb)
-    local unreadCount = params and params.unreadCount
-    devPrint("checkMailNotification", unreadCount)
-
-    local unreadTotal = tonumber(unreadCount or 0) or 0
-    if unreadTotal > 0 then
-        Notify(_U('NewMailNotification'), "info", 5000)
-    end
-
-    local ok, data = BccUtils.RPC:Call("lxr-mailbox:FetchMail", {})
-    if ok and data then
-        applyMailList(data.mails or {}, { skipNotify = true })
-    end
-
-    if cb then cb(true) end
-end)
-
-BccUtils.RPC:Register('lxr-mailbox:mailboxStatus', function(params, cb)
-    local hasMailbox  = params and params.hasMailbox
-    local mailboxId   = params and params.mailboxId
-    local playerName  = params and params.playerName
-    local postalCode  = params and params.postalCode
-
-    devPrint("mailboxStatus", hasMailbox, mailboxId, playerName, postalCode)
-    applyMailboxStatus({ hasMailbox = hasMailbox, mailboxId = mailboxId, postalCode = postalCode }, { openMenu = true })
-
-    if cb then cb(true) end
-end)
-
-function SpawnPigeon()
-    devPrint("spawnPigeon")
-    local playerPed = PlayerPedId()
-    local playerCoords = GetEntityCoords(playerPed)
-    local spawnCoords = vector3(playerCoords.x + 0.0, playerCoords.y + 0.0, playerCoords.z + 0.0)
-
-    local model = GetHashKey('A_C_Pigeon')
-    RequestModel(model, false)
-    while not HasModelLoaded(model) do
-        Wait(1)
-    end
-
-    local pigeon = CreatePed(model, spawnCoords.x, spawnCoords.y, spawnCoords.z, 0.0, true, false, true, true)
-
-    TaskFlyAway(pigeon, playerPed)
-    SetModelAsNoLongerNeeded(model)
-end
-
 CreateThread(function()
-    local PromptGroup = BccUtils.Prompt:SetupPromptGroup()
-    local mailboxPrompt = nil
-
-    local function registerMailboxPrompt()
-        if mailboxPrompt then
-            mailboxPrompt:DeletePrompt()
-        end
-        mailboxPrompt = PromptGroup:RegisterPrompt(_U('OpenMailBox'), 0x4CC0E2FE, 1, 1, true, 'hold',
-            { timedeventhash = "MEDIUM_TIMED_EVENT" })
-    end
-
+    local lastHelpAt = 0
     while true do
-        Wait(0)
-
         local playerPed = PlayerPedId()
 
-        -- if dead: clear prompt and chill
         if IsEntityDead(playerPed) then
-            if mailboxPrompt then
-                mailboxPrompt:DeletePrompt()
-                mailboxPrompt = nil
-            end
             Mailbox.State.nearMailbox = false
-            Wait(1000) -- throttle while dead
+            Wait(900)
+        elseif #mailboxCoords == 0 then
+            Mailbox.State.nearMailbox = false
+            Wait(IDLE_WAIT_MS)
         else
-            -- alive: proximity + prompt logic
-            local playerCoords = GetEntityCoords(playerPed)
+            local coords = GetEntityCoords(playerPed)
+            local px, py, pz = coords.x, coords.y, coords.z
             local nearMailbox = false
 
-            for _, location in pairs(Config.MailboxLocations) do
-                if Vdist(playerCoords, location.coords.x, location.coords.y, location.coords.z) < 2.0 then
+            for i = 1, #mailboxCoords do
+                local c = mailboxCoords[i]
+                local dx = px - c.x
+                local dy = py - c.y
+                local dz = pz - c.z
+                if (dx * dx + dy * dy + dz * dz) < INTERACT_R2 then
                     nearMailbox = true
                     break
                 end
@@ -173,39 +100,38 @@ CreateThread(function()
             Mailbox.State.nearMailbox = nearMailbox
 
             if nearMailbox then
-                if not mailboxPrompt then
-                    registerMailboxPrompt()
+                local now = GetGameTimer()
+                if now - lastHelpAt >= HELP_REFRESH_MS then
+                    lastHelpAt = now
+                    BeginTextCommandDisplayHelp('STRING')
+                    AddTextComponentSubstringPlayerName(_U('NearMailbox'))
+                    EndTextCommandDisplayHelp(0, false, false, -1)
                 end
 
-                PromptGroup:ShowGroup(_U('NearMailbox'))
-
-                if mailboxPrompt:HasCompleted() then
+                if IsControlJustPressed(0, INPUT_MAILBOX) then
                     devPrint(_U('MailboxPromptCompleted'))
 
-                    local ok, data = BccUtils.RPC:CallAsync("lxr-mailbox:CheckMailbox", {})
-                    if ok and data then
+                    local data = Mailbox.ServerCall('CheckMailbox', {})
+                    if data and data.ok ~= false then
                         applyMailboxStatus({
                             hasMailbox = data.hasMailbox,
-                            mailboxId  = data.mailboxId,
+                            mailboxId = data.mailboxId,
                             postalCode = data.postalCode,
-                            fullName   = data.fullName,
+                            fullName = data.fullName,
                         }, { openMenu = true })
                     else
                         applyMailboxStatus({
-                            mailboxId  = Mailbox.State.playermailboxId,
+                            mailboxId = Mailbox.State.playermailboxId,
                             postalCode = Mailbox.State.playerPostalCode,
-                            hasMailbox = false
+                            hasMailbox = false,
                         }, { openMenu = true })
                     end
-
-                    registerMailboxPrompt()
+                    Wait(250)
+                else
+                    Wait(NEAR_POLL_MS)
                 end
             else
-                if mailboxPrompt then
-                    mailboxPrompt:DeletePrompt()
-                    mailboxPrompt = nil
-                end
-                Mailbox.State.nearMailbox = false
+                Wait(IDLE_WAIT_MS)
             end
         end
     end
@@ -214,12 +140,11 @@ end)
 CreateThread(function()
     while true do
         Wait(60000)
-
-        local ok, data = BccUtils.RPC:CallAsync("lxr-mailbox:UpdateMailboxInfo", {})
-        if ok and data then
+        local data = Mailbox.ServerCall('UpdateMailboxInfo', {})
+        if data and data.ok ~= false then
             applyMailboxStatus({
-                mailboxId  = data.mailboxId or Mailbox.State.playermailboxId,
-                postalCode = data.postalCode or Mailbox.State.playerPostalCode
+                mailboxId = data.mailboxId or Mailbox.State.playermailboxId,
+                postalCode = data.postalCode or Mailbox.State.playerPostalCode,
             }, { openMenu = false })
         end
     end
@@ -230,10 +155,35 @@ CreateThread(function()
     local intervalMs = math.max(60000, math.floor(intervalMinutes * 60000))
     Wait(30000)
     while true do
-        local ok, poll = BccUtils.RPC:CallAsync("lxr-mailbox:PollUnread", {})
-        if ok and poll and (tonumber(poll.unread or 0) or 0) > 0 then
-            BccUtils.RPC:Notify('lxr-mailbox:checkMailNotification', { unreadCount = poll.unread })
+        local poll = Mailbox.ServerCall('PollUnread', {})
+        local unread = poll and tonumber(poll.unread or 0) or 0
+        if poll and poll.ok ~= false and unread > 0 then
+            Notify(_U('NewMailNotification'), 'info', 5000)
+            local result = Mailbox.ServerCall('FetchMail', {})
+            if result and result.mails then
+                Mailbox.ApplyMailList(result.mails, { skipNotify = true, openPage = false })
+            end
         end
         Wait(intervalMs)
     end
 end)
+
+function SpawnPigeon()
+    devPrint('spawnPigeon')
+    local playerPed = PlayerPedId()
+    local playerCoords = GetEntityCoords(playerPed)
+    local spawnCoords = vector3(playerCoords.x + 0.0, playerCoords.y + 0.0, playerCoords.z + 0.0)
+
+    local model = GetHashKey('A_C_Pigeon')
+    RequestModel(model, false)
+    local deadline = GetGameTimer() + 8000
+    while not HasModelLoaded(model) and GetGameTimer() < deadline do
+        Wait(25)
+    end
+    if not HasModelLoaded(model) then return end
+
+    local pigeon = CreatePed(model, spawnCoords.x, spawnCoords.y, spawnCoords.z, 0.0, true, false, true, true)
+
+    TaskFlyAway(pigeon, playerPed)
+    SetModelAsNoLongerNeeded(model)
+end
