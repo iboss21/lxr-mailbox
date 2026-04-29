@@ -28,7 +28,7 @@
 
     ═══════════════════════════════════════════════════════════════════════════════
 
-    Version:     1.3.0
+    Version:     1.4.0
     Tags:        RedM, Georgian, SeriousRP, Whitelist, Mailbox, Economy, RP
 
     Framework Support:
@@ -110,10 +110,75 @@ Config.MailLimits = {
     MaxMessageLength = 8000,
 }
 
---- Per-player throttle for `lxr-mailbox:req` (milliseconds between accepted requests).
+--- Per-player throttle for `lxr-mailbox:req`.
+--- `MinIntervalMs` applies between any two requests; `PerAction` adds sliding-window caps per action key.
 Config.NetRateLimit = {
     Enabled = true,
     MinIntervalMs = 120,
+    PerAction = {
+        FetchMail = { limit = 24, windowMs = 10000 },
+        FetchSentMail = { limit = 24, windowMs = 10000 },
+        SendMail = { limit = 8, windowMs = 60000 },
+        RegisterMailbox = { limit = 3, windowMs = 300000 },
+        AddContact = { limit = 12, windowMs = 60000 },
+        RemoveContact = { limit = 12, windowMs = 60000 },
+        DeleteMail = { limit = 20, windowMs = 60000 },
+        MarkMailRead = { limit = 40, windowMs = 60000 },
+        PollUnread = { limit = 30, windowMs = 60000 },
+        CheckMailbox = { limit = 20, windowMs = 60000 },
+        UpdateMailboxInfo = { limit = 20, windowMs = 60000 },
+        GetContacts = { limit = 24, windowMs = 10000 },
+        GetRecipients = { limit = 24, windowMs = 10000 },
+        SaveDraft = { limit = 30, windowMs = 60000 },
+        GetDrafts = { limit = 24, windowMs = 10000 },
+        DeleteDraft = { limit = 20, windowMs = 60000 },
+        PurchaseLetter = { limit = 8, windowMs = 60000 },
+    },
+}
+
+--- Spam controls for player-initiated SendMail (API exports can set options.skipAntiSpam).
+Config.MailAntiSpam = {
+    Enabled = true,
+    SameRecipientCooldownSec = 20,
+    MaxSendsPerMinute = 20,
+    DuplicateMessageWindowSec = 180,
+}
+
+--- Append-only staff audit log (send, delete, register, etc.).
+Config.MailAuditLog = {
+    Enabled = true,
+    LogApiSends = true,
+    MaxDetailLength = 500,
+}
+
+--- Allowed outbound mail categories (id = stored value, label = NUI / locale key optional).
+Config.MailCategories = {
+    { id = 'personal', label = 'MailCategoryPersonal' },
+    { id = 'business', label = 'MailCategoryBusiness' },
+    { id = 'legal', label = 'MailCategoryLegal' },
+    { id = 'telegram', label = 'MailCategoryTelegram' },
+    { id = 'government', label = 'MailCategoryGovernment' },
+    { id = 'medical', label = 'MailCategoryMedical' },
+    { id = 'contract', label = 'MailCategoryContract' },
+}
+
+--- Official letterheads: optional `jobs` = { jobName = minGrade, ... }. Empty/missing jobs = any sender may use.
+Config.Letterheads = {
+    sheriff = {
+        label = "Sheriff's Office",
+        jobs = { sheriff = 0, marshal = 0, deputy = 0 },
+    },
+    doctor = {
+        label = 'Medical Office',
+        jobs = { doctor = 0, medic = 0 },
+    },
+    mayor = {
+        label = "Mayor's Office",
+        jobs = { mayor = 0 },
+    },
+    plain = {
+        label = 'Plain Stationery',
+    },
 }
 
 -- ████████████████████████████████████████████████████████████████████████████████
@@ -182,7 +247,7 @@ CreateThread(function()
         🐺 LXR MAILBOX SYSTEM — LOADED SUCCESSFULLY
         ═══════════════════════════════════════════════════════════════════════════════
 
-        Version:     1.3.0
+        Version:     1.4.0
         Server:      The Land of Wolves 🐺
         Framework:   Auto-detect enabled (LXR → RSG → VORP)
         Locations:   ]] .. #Config.MailboxLocations .. [[ mailbox locations

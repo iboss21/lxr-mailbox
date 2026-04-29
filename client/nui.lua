@@ -52,6 +52,21 @@ function Mailbox.PushLocales()
     })
 end
 
+local function BuildMailUiMeta()
+    local cats = {}
+    for _, c in ipairs(Config.MailCategories or {}) do
+        cats[#cats + 1] = { id = c.id, label = c.label or c.id }
+    end
+    local heads = {}
+    for k, v in pairs(Config.Letterheads or {}) do
+        heads[#heads + 1] = { id = k, label = (v and v.label) or k }
+    end
+    table.sort(heads, function(a, b)
+        return tostring(a.label) < tostring(b.label)
+    end)
+    return { categories = cats, letterheads = heads }
+end
+
 function Mailbox.OpenNui(opts)
     opts = opts or {}
     SetNuiFocus(true, true)
@@ -62,6 +77,7 @@ function Mailbox.OpenNui(opts)
         postalCode = opts.postalCode,
         mailboxId = opts.mailboxId,
         localeStrings = Locales[Config.defaultlang] or {},
+        mailMeta = BuildMailUiMeta(),
     })
 end
 

@@ -97,47 +97,30 @@ function MailboxAPI:GetPlayerSourceByCharIdentifier(charIdentifier)
     return findPlayerByCharIdentifier(charIdentifier)
 end
 
-local function insertMailRow(fromChar, toMailbox, fromName, subject, message, location, etaTimestamp)
+local function insertMailRow(fromChar, toMailbox, fromName, subject, message, location, etaTimestamp,
+    mailCategory, letterheadKey, priority, isOfficial, senderMailboxId)
     local timestamp = os.date('%Y-%m-%d %H:%M:%S', os.time())
-
-    local fields = {
-        'from_char',
-        'to_char',
-        'from_name',
-        'subject',
-        'message',
-        'location',
-        'timestamp',
-        'eta_timestamp',
-        'is_read'
-    }
-
-    local placeholders = {}
-    local params = {}
-
-    local function push(value, allowNull)
-        if value == nil and allowNull then
-            placeholders[#placeholders + 1] = 'NULL'
-        else
-            placeholders[#placeholders + 1] = '?'
-            params[#params + 1] = value
-        end
-    end
-
-    push(fromChar, true)
-    push(toMailbox, false)
-    push(fromName, false)
-    push(subject, false)
-    push(message, false)
-    push(location, true)
-    push(timestamp, false)
-    push(etaTimestamp, true)
-    push(0, false)
-
-    local query = ('INSERT INTO bcc_mailbox_messages (%s) VALUES (%s)')
-        :format(table.concat(fields, ', '), table.concat(placeholders, ', '))
-
-    return MySQL.insert.await(query, params)
+    return MySQL.insert.await([[
+        INSERT INTO bcc_mailbox_messages (
+            from_char, to_char, from_name, subject, message, location, timestamp, eta_timestamp, is_read,
+            mail_category, letterhead_key, priority, is_official, sender_mailbox_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ]], {
+        fromChar,
+        tostring(toMailbox),
+        fromName,
+        subject,
+        message,
+        location,
+        timestamp,
+        etaTimestamp,
+        0,
+        mailCategory or 'personal',
+        letterheadKey,
+        priority or 'normal',
+        (isOfficial and 1) or 0,
+        senderMailboxId,
+    })
 end
 
 function MailboxAPI:SendMailToMailbox(mailboxId, subject, message, options)
@@ -179,9 +162,45 @@ function MailboxAPI:SendMailToMailbox(mailboxId, subject, message, options)
     local location = sanitizeString(options and options.location)
     local etaTimestamp = options and tonumber(options.etaTimestamp) or nil
 
-    local insertedId = insertMailRow(fromChar, numericMailboxId, fromName, subject, message, location, etaTimestamp)
+    local mailCategory = (options and options.mailCategory) and tostring(options.mailCategory):lower() or 'personal'
+    local letterheadKey = sanitizeString(options and options.letterheadKey)
+    local priorityRaw = sanitizeString(options and options.priority) or 'normal'
+    local priority = tostring(priorityRaw):lower()
+    local isOfficial = (options and options.isOfficial) and true or false
+    local senderMailboxId = options and tonumber(options.senderMailboxId) or nil
+
+    local insertedId = insertMailRow(
+        fromChar,
+        numericMailboxId,
+        fromName,
+        subject,
+        message,
+        location,
+        etaTimestamp,
+        mailCategory,
+        letterheadKey,
+        priority,
+        isOfficial,
+        senderMailboxId
+    )
     if not insertedId then
         return false, 'insert_failed'
+    end
+
+    if not (options and options.skipAudit) and LXRMailbox and LXRMailbox.AppendMailAudit then
+        local cfg = Config.MailAuditLog
+        if cfg and cfg.Enabled then
+            local fromPlayer = options and options.auditPlayerSource
+            if fromPlayer or cfg.LogApiSends then
+                LXRMailbox.AppendMailAudit('mail_send', {
+                    source_player = fromPlayer,
+                    char_identifier = options and options.auditCharIdentifier,
+                    mailbox_id = senderMailboxId,
+                    target_mailbox_id = numericMailboxId,
+                    detail = string.format('msg=%s cat=%s', tostring(insertedId), mailCategory),
+                })
+            end
+        end
     end
 
     if not (options and options.skipNotify) then

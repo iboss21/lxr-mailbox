@@ -77,6 +77,48 @@ CreateThread(function()
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]])
 
+    MySQL.query.await("ALTER TABLE `bcc_mailbox_messages` ADD COLUMN IF NOT EXISTS `mail_category` VARCHAR(32) NOT NULL DEFAULT 'personal'")
+    MySQL.query.await("ALTER TABLE `bcc_mailbox_messages` ADD COLUMN IF NOT EXISTS `letterhead_key` VARCHAR(64) DEFAULT NULL")
+    MySQL.query.await("ALTER TABLE `bcc_mailbox_messages` ADD COLUMN IF NOT EXISTS `priority` VARCHAR(16) NOT NULL DEFAULT 'normal'")
+    MySQL.query.await("ALTER TABLE `bcc_mailbox_messages` ADD COLUMN IF NOT EXISTS `is_official` TINYINT(1) NOT NULL DEFAULT 0")
+    MySQL.query.await("ALTER TABLE `bcc_mailbox_messages` ADD COLUMN IF NOT EXISTS `sender_mailbox_id` INT(11) DEFAULT NULL")
+
+    MySQL.query.await([[ 
+        CREATE TABLE IF NOT EXISTS `bcc_mailbox_drafts` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `owner_mailbox_id` INT(11) NOT NULL,
+            `recipient_postal` VARCHAR(32) DEFAULT NULL,
+            `subject` VARCHAR(255) DEFAULT NULL,
+            `message` TEXT,
+            `mail_category` VARCHAR(32) NOT NULL DEFAULT 'personal',
+            `letterhead_key` VARCHAR(64) DEFAULT NULL,
+            `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `idx_drafts_owner` (`owner_mailbox_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]])
+
+    MySQL.query.await([[ 
+        CREATE TABLE IF NOT EXISTS `bcc_mailbox_audit` (
+            `id` BIGINT(20) NOT NULL AUTO_INCREMENT,
+            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            `action` VARCHAR(32) NOT NULL,
+            `source_player` INT(11) DEFAULT NULL,
+            `char_identifier` VARCHAR(255) DEFAULT NULL,
+            `mailbox_id` INT(11) DEFAULT NULL,
+            `target_mailbox_id` INT(11) DEFAULT NULL,
+            `detail` VARCHAR(512) DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_audit_created` (`created_at`),
+            KEY `idx_audit_char` (`char_identifier`(100))
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]])
+
+    MySQL.query.await([[CREATE INDEX IF NOT EXISTS `idx_messages_to_read_id` ON `bcc_mailbox_messages` (`to_char`, `is_read`, `id` DESC)]])
+    MySQL.query.await([[CREATE INDEX IF NOT EXISTS `idx_messages_sender_box` ON `bcc_mailbox_messages` (`sender_mailbox_id`, `id` DESC)]])
+    MySQL.query.await([[CREATE INDEX IF NOT EXISTS `idx_contacts_owner` ON `bcc_mailbox_contacts` (`owner_mailbox_id`)]])
+    MySQL.query.await([[CREATE INDEX IF NOT EXISTS `idx_mailboxes_char` ON `bcc_mailboxes` (`char_identifier`(100))]])
+
     local rows = MySQL.query.await("SELECT `mailbox_id` FROM `bcc_mailboxes` WHERE `postal_code` IS NULL OR `postal_code` = ''")
     if rows and #rows > 0 then
         for _, row in ipairs(rows) do

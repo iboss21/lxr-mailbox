@@ -17,9 +17,22 @@
     postalCode: '',
     mailboxId: null,
     mails: [],
+    listKind: 'inbox',
+    inboxSearch: '',
+    mailMeta: { categories: [], letterheads: [] },
+    drafts: [],
     contacts: [],
     selectedMail: null,
-    compose: { postal: '', subject: '', message: '', contactName: '' },
+    compose: {
+      postal: '',
+      subject: '',
+      message: '',
+      contactName: '',
+      mailCategory: 'personal',
+      letterheadKey: '',
+      priority: 'normal',
+      draftId: null,
+    },
     localeStrings: {},
   };
 
@@ -62,6 +75,25 @@
     setTimeout(function () {
       el.remove();
     }, 4200);
+  }
+
+  function filterMails(list, q) {
+    if (!q || !String(q).trim()) return list.slice();
+    var low = String(q).toLowerCase();
+    return (list || []).filter(function (m) {
+      var sub = (m.subject || '').toLowerCase();
+      var from = (m.from_name || '').toLowerCase();
+      var fc = (m.from_char || '').toLowerCase();
+      var toC = (m.to_char != null ? String(m.to_char) : '').toLowerCase();
+      var msg = (m.message || '').toLowerCase();
+      return (
+        sub.indexOf(low) !== -1 ||
+        from.indexOf(low) !== -1 ||
+        fc.indexOf(low) !== -1 ||
+        toC.indexOf(low) !== -1 ||
+        msg.indexOf(low) !== -1
+      );
+    });
   }
 
   function clearPanels() {
@@ -130,7 +162,16 @@
         label: t('SendMailButton'),
         primary: true,
         onClick: function () {
-          state.compose = { postal: '', subject: '', message: '', contactName: '' };
+          state.compose = {
+            postal: '',
+            subject: '',
+            message: '',
+            contactName: '',
+            mailCategory: 'personal',
+            letterheadKey: '',
+            priority: 'normal',
+            draftId: null,
+          };
           state.view = 'compose';
           render();
         },
@@ -140,9 +181,37 @@
         onClick: function () {
           bodyEl.innerHTML =
             '<div class="loading-overlay">' + esc(t('ReceivedMessages')) + '…</div>';
+          state.listKind = 'inbox';
+          state.inboxSearch = '';
           api('FetchMail', {}).then(function (r) {
             state.mails = (r && r.mails) || [];
             state.view = 'inbox';
+            render();
+          });
+        },
+      },
+      {
+        label: t('SentMailButton'),
+        onClick: function () {
+          bodyEl.innerHTML =
+            '<div class="loading-overlay">' + esc(t('SentMailHeader')) + '…</div>';
+          state.listKind = 'sent';
+          state.inboxSearch = '';
+          api('FetchSentMail', {}).then(function (r) {
+            state.mails = (r && r.mails) || [];
+            state.view = 'inbox';
+            render();
+          });
+        },
+      },
+      {
+        label: t('DraftsButton'),
+        onClick: function () {
+          bodyEl.innerHTML =
+            '<div class="loading-overlay">' + esc(t('DraftsHeader')) + '…</div>';
+          api('GetDrafts', {}).then(function (r) {
+            state.drafts = (r && r.drafts) || [];
+            state.view = 'drafts';
             render();
           });
         },
@@ -171,37 +240,66 @@
   }
 
   function renderInbox() {
-    hdrTitle.textContent = t('ReceivedMessagesHeader');
+    hdrTitle.textContent =
+      state.listKind === 'sent' ? t('SentMailHeader') : t('ReceivedMessagesHeader');
     hdrSub.textContent = '';
+    var searchRow =
+      '<div class="field" style="margin-bottom:10px"><label>' +
+      esc(t('SearchMailLabel')) +
+      '</label><input type="search" id="inbox-search" /></div>';
+    var filtered = filterMails(state.mails, state.inboxSearch);
+    bodyEl.innerHTML = searchRow;
+    var inp = bodyEl.querySelector('#inbox-search');
+    inp.value = state.inboxSearch || '';
+    inp.oninput = function () {
+      state.inboxSearch = inp.value;
+      renderInbox();
+    };
     if (!state.mails.length) {
-      bodyEl.innerHTML =
-        '<div class="empty-hint">' + esc(t('NoMailsFound')) + '</div>';
+      var e0 = document.createElement('div');
+      e0.className = 'empty-hint';
+      e0.textContent = t('NoMailsFound');
+      bodyEl.appendChild(e0);
+    } else if (!filtered.length) {
+      var e1 = document.createElement('div');
+      e1.className = 'empty-hint';
+      e1.textContent = t('NoMailsFound');
+      bodyEl.appendChild(e1);
     } else {
-      const wrap = document.createElement('div');
+      var wrap = document.createElement('div');
       wrap.className = 'mail-list';
-      state.mails.forEach(function (mail, idx) {
-        const row = document.createElement('button');
+      filtered.forEach(function (mail, idx) {
+        var row = document.createElement('button');
         row.type = 'button';
         row.className =
           'mail-row' + (Number(mail.is_read) !== 1 ? ' unread' : '');
-        const subj = mail.subject || '—';
-        const from = mail.from_name || '—';
-        const code = mail.from_char || '';
+        var subj = mail.subject || '—';
+        var metaLine;
+        if (state.listKind === 'sent') {
+          metaLine =
+            idx +
+            1 +
+            '. ' +
+            t('MailToLabel') +
+            ' ' +
+            (mail.to_char != null ? mail.to_char : '—');
+        } else {
+          var from = mail.from_name || '—';
+          var code = mail.from_char || '';
+          metaLine =
+            idx + 1 + '. ' + t('mailFrom') + ' ' + from + ' (' + code + ')';
+        }
+        var badge =
+          Number(mail.is_official) === 1
+            ? '<span class="mail-badge">' + esc(t('MailOfficialBadge')) + '</span> '
+            : '';
         row.innerHTML =
-          '<div><strong>' +
+          '<div>' +
+          badge +
+          '<strong>' +
           esc(subj) +
           '</strong></div><div class="mail-meta">' +
-          esc(
-            idx +
-              1 +
-              '. ' +
-              t('mailFrom') +
-              ' ' +
-              from +
-              ' (' +
-              code +
-              ')'
-          ) +
+          esc(metaLine) +
           '</div>';
         row.onclick = function () {
           state.selectedMail = mail;
@@ -216,6 +314,7 @@
       {
         label: t('BackButtonLabel'),
         onClick: function () {
+          state.inboxSearch = '';
           state.view = 'main';
           render();
         },
@@ -224,84 +323,133 @@
   }
 
   function renderRead() {
-    const mail = state.selectedMail;
+    var mail = state.selectedMail;
     if (!mail) {
       state.view = 'main';
       render();
       return;
     }
+    var isSent = state.listKind === 'sent';
     hdrTitle.textContent = t('MessageContentHeader');
-    hdrSub.textContent =
-      t('mailFrom') +
-      ' ' +
-      esc(mail.from_name || '') +
-      ' (' +
-      esc(mail.from_char || '') +
-      ')';
+    if (isSent) {
+      hdrSub.textContent =
+        t('MailToLabel') + ' ' + (mail.to_char != null ? mail.to_char : '');
+    } else {
+      hdrSub.textContent =
+        t('mailFrom') +
+        ' ' +
+        (mail.from_name || '') +
+        ' (' +
+        (mail.from_char || '') +
+        ')';
+    }
+
+    var extraMeta = '';
+    if (mail.mail_category) {
+      extraMeta +=
+        '<p class="read-meta">' +
+        esc(t('MailCategoryLabel')) +
+        ': ' +
+        esc(mail.mail_category) +
+        '</p>';
+    }
+    if (mail.letterhead_key) {
+      extraMeta +=
+        '<p class="read-meta">' +
+        esc(t('MailLetterheadLabel')) +
+        ': ' +
+        esc(mail.letterhead_key) +
+        '</p>';
+    }
+
+    var unreadBlock = '';
+    if (!isSent) {
+      unreadBlock =
+        '<div class="checkbox-row"><label><input type="checkbox" id="mk-unread"/> ' +
+        esc(t('MarkAsUnreadLabel')) +
+        '</label></div>';
+    }
 
     bodyEl.innerHTML =
+      extraMeta +
       '<p style="font-family:var(--font-display);font-size:1.15rem;margin:0 0 12px;color:var(--accent)">' +
       esc(mail.subject || '') +
       '</p>' +
       '<div class="message-read">' +
       esc(mail.message || '') +
       '</div>' +
-      '<div class="checkbox-row"><label><input type="checkbox" id="mk-unread"/> ' +
-      esc(t('MarkAsUnreadLabel')) +
-      '</label></div>';
+      unreadBlock;
 
-    const unreadCb = bodyEl.querySelector('#mk-unread');
-    unreadCb.checked = Number(mail.is_read) === 0;
-    unreadCb.onchange = function () {
-      api('MarkMailRead', {
-        mailId: mail.id,
-        read: !unreadCb.checked,
-      }).then(function () {
-        mail.is_read = unreadCb.checked ? 0 : 1;
-      });
-    };
+    if (!isSent) {
+      var unreadCb = bodyEl.querySelector('#mk-unread');
+      unreadCb.checked = Number(mail.is_read) === 0;
+      unreadCb.onchange = function () {
+        api('MarkMailRead', {
+          mailId: mail.id,
+          read: !unreadCb.checked,
+        }).then(function () {
+          mail.is_read = unreadCb.checked ? 0 : 1;
+        });
+      };
+    }
 
-    footerButtons([
+    function refreshListAndBack() {
+      if (state.listKind === 'sent') {
+        api('FetchSentMail', {}).then(function (r) {
+          state.mails = (r && r.mails) || [];
+          state.selectedMail = null;
+          state.view = 'inbox';
+          render();
+        });
+      } else {
+        api('FetchMail', {}).then(function (r) {
+          state.mails = (r && r.mails) || [];
+          state.selectedMail = null;
+          state.view = 'inbox';
+          render();
+        });
+      }
+    }
+
+    var ft = [
       {
         label: t('BackButtonLabel'),
-        onClick: function () {
-          api('FetchMail', {}).then(function (r) {
-            state.mails = (r && r.mails) || [];
-            state.view = 'inbox';
-            render();
-          });
-        },
+        onClick: refreshListAndBack,
       },
-      {
-        label: t('ReplyButtonLabel'),
-        primary: true,
-        onClick: function () {
-          var code = String(mail.from_char || '').trim();
-          state.compose = {
-            postal: code,
-            subject: 'Re: ' + (mail.subject || ''),
-            message: '',
-            contactName: mail.from_name || '',
-          };
-          state.view = 'compose';
-          render();
-        },
+    ];
+    ft.push({
+      label: t('ReplyButtonLabel'),
+      primary: true,
+      onClick: function () {
+        var code = isSent
+          ? String(mail.to_char || '').trim()
+          : String(mail.from_char || '').trim();
+        state.compose = {
+          postal: code,
+          subject: 'Re: ' + (mail.subject || ''),
+          message: '',
+          contactName: isSent ? code : mail.from_name || '',
+          mailCategory: 'personal',
+          letterheadKey: '',
+          priority: 'normal',
+          draftId: null,
+        };
+        state.view = 'compose';
+        render();
       },
-      {
+    });
+    if (!isSent) {
+      ft.push({
         label: t('DeleteMailButtonLabel'),
         danger: true,
         onClick: function () {
           api('DeleteMail', { mailId: mail.id }).then(function () {
-            api('FetchMail', {}).then(function (r) {
-              state.mails = (r && r.mails) || [];
-              state.selectedMail = null;
-              state.view = 'inbox';
-              render();
-            });
+            refreshListAndBack();
           });
         },
-      },
-    ]);
+      });
+    }
+    footerButtons(ft);
   }
 
   function renderCompose() {
@@ -310,10 +458,50 @@
       t('SelectedContactLabel') +
       esc(state.compose.contactName || t('ManualRecipientLabel'));
 
+    var catOpts = '';
+    (state.mailMeta.categories || []).forEach(function (c) {
+      catOpts +=
+        '<option value="' +
+        esc(String(c.id)) +
+        '">' +
+        esc(t(c.label)) +
+        '</option>';
+    });
+    var lhOpts = '<option value="">' + esc('—') + '</option>';
+    (state.mailMeta.letterheads || []).forEach(function (h) {
+      lhOpts +=
+        '<option value="' +
+        esc(String(h.id)) +
+        '">' +
+        esc(h.label) +
+        '</option>';
+    });
+    var priVal = state.compose.priority || 'normal';
+
     bodyEl.innerHTML =
       '<div class="field"><label>' +
       esc(t('PostalCodeLabel')) +
       '</label><input type="text" id="mf-postal" /></div>' +
+      '<div class="field"><label>' +
+      esc(t('MailCategoryLabel')) +
+      '</label><select id="mf-cat">' +
+      catOpts +
+      '</select></div>' +
+      '<div class="field"><label>' +
+      esc(t('MailLetterheadLabel')) +
+      '</label><select id="mf-lh">' +
+      lhOpts +
+      '</select></div>' +
+      '<div class="field"><label>' +
+      esc(t('MailPriorityLabel')) +
+      '</label><select id="mf-pri">' +
+      '<option value="low">' +
+      esc(t('PriorityLow')) +
+      '</option><option value="normal">' +
+      esc(t('PriorityNormal')) +
+      '</option><option value="high">' +
+      esc(t('PriorityHigh')) +
+      '</option></select></div>' +
       '<div class="field"><label>' +
       esc(t('SubjectPlaceholder')) +
       '</label><input type="text" id="mf-subj" /></div>' +
@@ -324,14 +512,30 @@
     var ip = bodyEl.querySelector('#mf-postal');
     var is = bodyEl.querySelector('#mf-subj');
     var im = bodyEl.querySelector('#mf-msg');
+    var ic = bodyEl.querySelector('#mf-cat');
+    var il = bodyEl.querySelector('#mf-lh');
+    var ipr = bodyEl.querySelector('#mf-pri');
     ip.value = state.compose.postal || '';
     is.value = state.compose.subject || '';
     im.value = state.compose.message || '';
+    ic.value = state.compose.mailCategory || 'personal';
+    il.value = state.compose.letterheadKey || '';
+    ipr.value = priVal;
+
+    function syncComposeFromFields() {
+      state.compose.postal = ip.value.trim();
+      state.compose.subject = is.value;
+      state.compose.message = im.value;
+      state.compose.mailCategory = ic.value;
+      state.compose.letterheadKey = il.value;
+      state.compose.priority = ipr.value;
+    }
 
     footerButtons([
       {
         label: t('SelectRecipientButton'),
         onClick: function () {
+          syncComposeFromFields();
           api('GetContacts', {}).then(function (r) {
             state.contacts = (r && r.contacts) || [];
             state.view = 'pickRecipient';
@@ -340,22 +544,41 @@
         },
       },
       {
+        label: t('SaveDraftButton'),
+        onClick: function () {
+          syncComposeFromFields();
+          api('SaveDraft', {
+            draftId: state.compose.draftId,
+            recipientPostal: state.compose.postal,
+            subject: state.compose.subject,
+            message: state.compose.message,
+            mailCategory: state.compose.mailCategory,
+            letterheadKey: state.compose.letterheadKey || null,
+          }).then(function (r) {
+            if (r && r.draftId) state.compose.draftId = r.draftId;
+          });
+        },
+      },
+      {
         label: t('SendMailButton'),
         primary: true,
         onClick: function () {
-          state.compose.postal = ip.value.trim();
-          state.compose.subject = is.value;
-          state.compose.message = im.value;
+          syncComposeFromFields();
           api('SendMail', {
             recipientPostalCode: state.compose.postal,
             subject: state.compose.subject,
             message: state.compose.message,
+            mailCategory: state.compose.mailCategory,
+            letterheadKey: state.compose.letterheadKey || '',
+            priority: state.compose.priority,
+            draftId: state.compose.draftId,
           }).then(function (r) {
             if (r && r.success) {
               fetch('https://' + resName() + '/spawnPigeon', {
                 method: 'POST',
                 body: '{}',
               }).catch(function () {});
+              state.compose.draftId = null;
               state.view = 'main';
               render();
             }
@@ -365,6 +588,55 @@
       {
         label: t('BackButtonLabel'),
         ghost: true,
+        onClick: function () {
+          state.view = 'main';
+          render();
+        },
+      },
+    ]);
+  }
+
+  function renderDrafts() {
+    hdrTitle.textContent = t('DraftsHeader');
+    hdrSub.textContent = '';
+    if (!state.drafts || !state.drafts.length) {
+      bodyEl.innerHTML =
+        '<div class="empty-hint">' + esc(t('NoMailsFound')) + '</div>';
+    } else {
+      var wrap = document.createElement('div');
+      wrap.className = 'mail-list';
+      state.drafts.forEach(function (d) {
+        var row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'mail-row';
+        var subj = d.subject || '—';
+        row.innerHTML =
+          '<div><strong>' +
+          esc(subj) +
+          '</strong></div><div class="mail-meta">' +
+          esc(d.recipient_postal || '') +
+          '</div>';
+        row.onclick = function () {
+          state.compose = {
+            postal: d.recipient_postal || '',
+            subject: d.subject || '',
+            message: d.message || '',
+            contactName: d.recipient_postal || '',
+            mailCategory: d.mail_category || 'personal',
+            letterheadKey: d.letterhead_key || '',
+            priority: 'normal',
+            draftId: d.id,
+          };
+          state.view = 'compose';
+          render();
+        };
+        wrap.appendChild(row);
+      });
+      bodyEl.appendChild(wrap);
+    }
+    footerButtons([
+      {
+        label: t('BackButtonLabel'),
         onClick: function () {
           state.view = 'main';
           render();
@@ -555,6 +827,7 @@
     else if (v === 'inbox') renderInbox();
     else if (v === 'read') renderRead();
     else if (v === 'compose') renderCompose();
+    else if (v === 'drafts') renderDrafts();
     else if (v === 'contacts') renderContacts();
     else if (v === 'addContact') renderAddContact();
     else if (v === 'pickRecipient') renderPickRecipient();
@@ -576,6 +849,8 @@
       state.mailboxId = d.mailboxId;
       state.localeStrings = d.localeStrings || {};
       L = state.localeStrings;
+      state.mailMeta = d.mailMeta || { categories: [], letterheads: [] };
+      state.listKind = 'inbox';
       pickFilter = '';
       state.view = state.hasMailbox ? 'main' : 'register';
       shell.classList.remove('hidden');

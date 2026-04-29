@@ -295,6 +295,47 @@ else -- fw == 'vorp'
 
 end
 
+--- Returns { name = lowercase job name, grade = number } or nil if unknown.
+function Framework.GetJobInfo(src)
+    local user = Framework.GetUser(src)
+    if not user then return nil end
+
+    if fw == 'lxr-core' or fw == 'rsg-core' then
+        local pd = user.PlayerData
+        if not pd then return nil end
+        local j = pd.job
+        if type(j) ~= 'table' then return nil end
+        local name = j.name or j.type or j.label
+        if type(name) ~= 'string' then
+            name = name and tostring(name) or ''
+        end
+        if name == '' then return nil end
+        return {
+            name = string.lower(name),
+            grade = tonumber(j.grade or j.level or 0) or 0,
+        }
+    end
+
+    local char = user.getUsedCharacter
+    if type(char) == 'function' then
+        char = char(user)
+    end
+    if not char then return nil end
+    local name = char.job
+    if type(name) == 'string' and name ~= '' then
+        name = string.lower(name)
+    elseif name then
+        name = string.lower(tostring(name))
+    else
+        name = ''
+    end
+    if name == '' then return nil end
+    return {
+        name = name,
+        grade = tonumber(char.jobgrade or char.jobGrade or 0) or 0,
+    }
+end
+
 -- ████████████████████████████████████████████████████████████████████████████████
 -- ████████████████████████ END OF FRAMEWORK BRIDGE ██████████████████████████████
 -- ████████████████████████████████████████████████████████████████████████████████

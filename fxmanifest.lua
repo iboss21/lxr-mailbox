@@ -10,7 +10,7 @@ rdr3_warning 'I acknowledge that this is a prerelease build of RedM, and I am aw
 name        'lxr-mailbox'
 description 'LXR Mailbox - standalone postal NUI | wolves.land'
 author      'iBoss21 / The Lux Empire'
-version     '1.3.0'
+version     '1.4.0'
 url         'https://www.wolves.land'
 
 lua54 'yes'
@@ -43,6 +43,8 @@ server_scripts {
     'server/framework_bridge.lua',
     'server/controllers.lua',
     'server/helpers.lua',
+    'server/rate_limit.lua',
+    'server/audit.lua',
     'server/API.lua',
     'server/dbUpdater.lua',
     'server/items.lua',

@@ -44,7 +44,6 @@ function GetMailsForRecipient(recipientMailboxId, recipientPostal, charIdentifie
         tostring(charIdentifier)
     }) or {}
 
-    -- normalize timestamps
     for _, mail in ipairs(results) do
         if type(mail.timestamp) == "number" then
             mail.timestamp = os.date('%Y-%m-%d %H:%M:%S', mail.timestamp)
@@ -54,6 +53,28 @@ function GetMailsForRecipient(recipientMailboxId, recipientPostal, charIdentifie
     return results
 end
 
+function GetSentMailsForSender(senderMailboxId, senderPostalCode)
+    local mid = tonumber(senderMailboxId)
+    if not mid then return {} end
+    local results = MySQL.query.await([[
+        SELECT *
+        FROM bcc_mailbox_messages
+        WHERE sender_mailbox_id = ? OR (sender_mailbox_id IS NULL AND (from_char = ? OR from_char = ?))
+        ORDER BY id DESC
+    ]], {
+        mid,
+        tostring(senderPostalCode or ''),
+        tostring(mid),
+    }) or {}
+
+    for _, mail in ipairs(results) do
+        if type(mail.timestamp) == "number" then
+            mail.timestamp = os.date('%Y-%m-%d %H:%M:%S', mail.timestamp)
+        end
+    end
+
+    return results
+end
 function CountUnreadForRecipient(mailboxIdStr, postalCodeStr, charIdStr)
     local unread = MySQL.scalar.await(
         'SELECT COUNT(*) FROM bcc_mailbox_messages WHERE is_read = 0 AND (to_char = ? OR to_char = ? OR to_char = ?)',
@@ -163,6 +184,49 @@ function DeleteContact(ownerMailboxId, contactId)
     local affected = MySQL.update.await(
         'DELETE FROM bcc_mailbox_contacts WHERE id = ? AND owner_mailbox_id = ?',
         { contactId, ownerMailboxId }
+    )
+    return normalizeAffectedRows(affected)
+end
+
+function GetDraftsForOwner(ownerMailboxId)
+    if not ownerMailboxId then return {} end
+    return MySQL.query.await([[
+        SELECT id, recipient_postal, subject, message, mail_category, letterhead_key, updated_at
+        FROM bcc_mailbox_drafts
+        WHERE owner_mailbox_id = ?
+        ORDER BY updated_at DESC
+    ]], { ownerMailboxId }) or {}
+end
+
+function InsertDraft(ownerMailboxId, recipientPostal, subject, message, mailCategory, letterheadKey)
+    return MySQL.insert.await(
+        [[INSERT INTO bcc_mailbox_drafts (owner_mailbox_id, recipient_postal, subject, message, mail_category, letterhead_key)
+          VALUES (?, ?, ?, ?, ?, ?)]],
+        { ownerMailboxId, recipientPostal, subject, message, mailCategory, letterheadKey }
+    )
+end
+
+function UpdateDraftForOwner(draftId, ownerMailboxId, recipientPostal, subject, message, mailCategory, letterheadKey)
+    local updated = MySQL.update.await([[
+        UPDATE bcc_mailbox_drafts
+        SET recipient_postal = ?, subject = ?, message = ?, mail_category = ?, letterhead_key = ?
+        WHERE id = ? AND owner_mailbox_id = ?
+    ]], {
+        recipientPostal,
+        subject,
+        message,
+        mailCategory,
+        letterheadKey,
+        draftId,
+        ownerMailboxId,
+    })
+    return normalizeAffectedRows(updated)
+end
+
+function DeleteDraftForOwner(draftId, ownerMailboxId)
+    local affected = MySQL.update.await(
+        'DELETE FROM bcc_mailbox_drafts WHERE id = ? AND owner_mailbox_id = ?',
+        { draftId, ownerMailboxId }
     )
     return normalizeAffectedRows(affected)
 end

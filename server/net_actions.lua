@@ -23,6 +23,101 @@ LXRMailbox.NetActions = LXRMailbox.NetActions or {}
 local Framework = LXRMailbox.Framework
 local MailboxAPI = MailboxAPI or exports['lxr-mailbox']:getMailboxAPI()
 
+local sendSpamState = {}
+
+local function normalizeMailCategory(raw)
+    local c = raw and tostring(raw):lower() or 'personal'
+    for _, def in ipairs(Config.MailCategories or {}) do
+        if def.id == c then return c end
+    end
+    return 'personal'
+end
+
+local function resolveLetterhead(src, key)
+    if not key or tostring(key) == '' then
+        return nil, 0
+    end
+    key = string.lower(tostring(key))
+    local cfgHead = Config.Letterheads and Config.Letterheads[key]
+    if not cfgHead then
+        return nil, 2
+    end
+    local jobs = cfgHead.jobs
+    if not jobs or next(jobs) == nil then
+        return key, 0
+    end
+    local info = Framework.GetJobInfo(src)
+    if not info or not info.name or info.name == '' then
+        return nil, 1
+    end
+    for jobName, minGrade in pairs(jobs) do
+        if string.lower(tostring(jobName)) == info.name and (info.grade >= (tonumber(minGrade) or 0)) then
+            return key, 0
+        end
+    end
+    return nil, 1
+end
+
+local function mailPriority(raw)
+    local p = raw and tostring(raw):lower() or 'normal'
+    if p == 'low' or p == 'high' then return p end
+    return 'normal'
+end
+
+local function isOfficialLetterheadKey(key)
+    if not key then return false end
+    local c = Config.Letterheads and Config.Letterheads[key]
+    if not c or not c.jobs then return false end
+    return next(c.jobs) ~= nil
+end
+
+local function djb2Hash(s)
+    local hash = 5381
+    s = s or ''
+    for i = 1, #s do
+        hash = ((hash * 33) + string.byte(s, i)) % 2147483647
+    end
+    return hash
+end
+
+local function allowPlayerSendAntiSpam(src, targetMailboxId, subject, message)
+    local cfg = Config.MailAntiSpam
+    if not cfg or not cfg.Enabled then return true end
+    if not sendSpamState[src] then
+        sendSpamState[src] = { sends = {}, lastTo = {}, recentHash = {} }
+    end
+    local b = sendSpamState[src]
+    local now = os.time()
+    local cutoff = now - 60
+    local newSends = {}
+    for _, t in ipairs(b.sends) do
+        if t > cutoff then newSends[#newSends + 1] = t end
+    end
+    b.sends = newSends
+    local maxPerMin = tonumber(cfg.MaxSendsPerMinute) or 20
+    if #b.sends >= maxPerMin then return false, 'spam_rate' end
+
+    local tid = tostring(targetMailboxId)
+    local cd = tonumber(cfg.SameRecipientCooldownSec) or 0
+    if cd > 0 and b.lastTo[tid] and (now - b.lastTo[tid]) < cd then
+        return false, 'spam_recipient_cooldown'
+    end
+
+    local dupWin = tonumber(cfg.DuplicateMessageWindowSec) or 0
+    if dupWin > 0 then
+        local h = djb2Hash(subject .. '\0' .. message)
+        local prev = b.recentHash[h]
+        if prev and (now - prev) < dupWin then
+            return false, 'spam_duplicate'
+        end
+        b.recentHash[h] = now
+    end
+
+    b.sends[#b.sends + 1] = now
+    b.lastTo[tid] = now
+    return true
+end
+
 local function shapeContacts(rows)
     local contacts = {}
     for _, r in ipairs(rows or {}) do
@@ -103,6 +198,14 @@ LXRMailbox.NetActions.SendMail = function(src, params)
         return response
     end
 
+    local spamOk, spamReason = allowPlayerSendAntiSpam(_source, targetMailbox.mailbox_id, subject, message)
+    if not spamOk then
+        NotifyClient(_source, _U('MailAntiSpamCooldown'), 'error', 4500)
+        response.reason = spamReason or 'spam'
+        response.ok = false
+        return response
+    end
+
     local senderMailbox = MailboxAPI:GetMailboxByCharIdentifier(Framework.GetCharIdentifier(Character))
     if not senderMailbox then
         NotifyClient(_source, _U('MailboxNotFound'), 'error', 5000)
@@ -112,15 +215,45 @@ LXRMailbox.NetActions.SendMail = function(src, params)
     end
 
     local senderName = Framework.GetFirstName(Character) .. ' ' .. Framework.GetLastName(Character)
+    local lhKey, lhErr = resolveLetterhead(_source, params and params.letterheadKey)
+    if lhErr == 2 then
+        NotifyClient(_source, _U('LetterheadInvalid'), 'error', 5000)
+        response.reason = 'invalid_letterhead'
+        response.ok = false
+        return response
+    end
+    if lhErr == 1 then
+        NotifyClient(_source, _U('LetterheadNotPermitted'), 'error', 5000)
+        response.reason = 'letterhead_denied'
+        response.ok = false
+        return response
+    end
+
+    local cat = normalizeMailCategory(params and params.mailCategory)
+    local pri = mailPriority(params and params.priority)
+    local official = lhKey ~= nil and isOfficialLetterheadKey(lhKey)
+
+    local charId = Framework.GetCharIdentifier(Character)
     local options = {
         fromChar = senderMailbox.postal_code,
         fromName = senderName,
+        senderMailboxId = senderMailbox.mailbox_id,
+        mailCategory = cat,
+        letterheadKey = lhKey,
+        priority = pri,
+        isOfficial = official,
+        auditPlayerSource = _source,
+        auditCharIdentifier = charId and tostring(charId) or nil,
     }
 
     local ok, result = MailboxAPI:SendMailToMailbox(targetMailbox.mailbox_id, subject, message, options)
 
     if ok then
         Framework.RemoveMoney(User, Config.SendMessageFee)
+        local draftId = params and tonumber(params.draftId)
+        if draftId and senderMailbox.mailbox_id then
+            DeleteDraftForOwner(draftId, senderMailbox.mailbox_id)
+        end
         local recipientLabel = TrimWhitespace((targetMailbox.first_name or '') .. ' ' .. (targetMailbox.last_name or ''))
         if recipientLabel == '' then
             recipientLabel = targetMailbox.postal_code or tostring(targetMailbox.mailbox_id)
@@ -250,6 +383,156 @@ LXRMailbox.NetActions.FetchMail = function(src, params)
     end
 
     return { ok = true, mails = mails, count = #mails }
+end
+
+LXRMailbox.NetActions.FetchSentMail = function(src, params)
+    local user = Framework.GetUser(src)
+    if not user then
+        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+        return { ok = false }
+    end
+
+    local char = Framework.GetCharacter(user)
+    if not char then
+        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+        return { ok = false }
+    end
+
+    local mailboxRow = GetMailboxByCharIdentifier(Framework.GetCharIdentifier(char))
+    if not mailboxRow then
+        NotifyClient(src, _U('MailboxNotFound'), 'error', 5000)
+        return { ok = false }
+    end
+
+    local mails = GetSentMailsForSender(mailboxRow.mailbox_id, mailboxRow.postal_code)
+    return { ok = true, mails = mails, count = #mails }
+end
+
+LXRMailbox.NetActions.GetDrafts = function(src, params)
+    local user = Framework.GetUser(src)
+    if not user then
+        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+        return { ok = false }
+    end
+
+    local char = Framework.GetCharacter(user)
+    if not char then
+        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+        return { ok = false }
+    end
+
+    local mailbox = MailboxAPI:GetMailboxByCharIdentifier(Framework.GetCharIdentifier(char))
+    if not mailbox then
+        NotifyClient(src, _U('MailboxNotFound'), 'error', 5000)
+        return { ok = false }
+    end
+
+    local rows = GetDraftsForOwner(mailbox.mailbox_id)
+    return { ok = true, drafts = rows, count = #rows }
+end
+
+LXRMailbox.NetActions.SaveDraft = function(src, params)
+    local user = Framework.GetUser(src)
+    if not user then
+        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+        return { ok = false, reason = 'user_not_found' }
+    end
+
+    local char = Framework.GetCharacter(user)
+    if not char then
+        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+        return { ok = false, reason = 'character_not_found' }
+    end
+
+    local mailbox = MailboxAPI:GetMailboxByCharIdentifier(Framework.GetCharIdentifier(char))
+    if not mailbox then
+        NotifyClient(src, _U('MailboxNotFound'), 'error', 5000)
+        return { ok = false, reason = 'mailbox_not_found' }
+    end
+
+    local ml = Config.MailLimits or {}
+    local maxSub = tonumber(ml.MaxSubjectLength) or 200
+    local maxMsg = tonumber(ml.MaxMessageLength) or 8000
+    local subject = params and params.subject and tostring(params.subject) or ''
+    local message = params and params.message and tostring(params.message) or ''
+    if utf8 and utf8.len then
+        local okS, ns = pcall(utf8.len, subject)
+        local okM, nm = pcall(utf8.len, message)
+        if okS and ns and ns > maxSub then
+            NotifyClient(src, _U('MailSubjectTooLong'), 'error', 5000)
+            return { ok = false, reason = 'subject_too_long' }
+        end
+        if okM and nm and nm > maxMsg then
+            NotifyClient(src, _U('MailMessageTooLong'), 'error', 5000)
+            return { ok = false, reason = 'message_too_long' }
+        end
+    else
+        if #subject > maxSub then
+            NotifyClient(src, _U('MailSubjectTooLong'), 'error', 5000)
+            return { ok = false, reason = 'subject_too_long' }
+        end
+        if #message > maxMsg then
+            NotifyClient(src, _U('MailMessageTooLong'), 'error', 5000)
+            return { ok = false, reason = 'message_too_long' }
+        end
+    end
+
+    local recipient = params and params.recipientPostal and TrimWhitespace(tostring(params.recipientPostal)) or nil
+    if recipient == '' then recipient = nil end
+    local cat = normalizeMailCategory(params and params.mailCategory)
+    local lhRaw = params and params.letterheadKey
+    local lhKey = nil
+    if lhRaw and tostring(lhRaw) ~= '' then
+        lhKey = string.lower(tostring(lhRaw))
+        if not Config.Letterheads or not Config.Letterheads[lhKey] then
+            lhKey = nil
+        end
+    end
+
+    local draftId = params and tonumber(params.draftId)
+    if draftId then
+        local n = UpdateDraftForOwner(draftId, mailbox.mailbox_id, recipient, subject, message, cat, lhKey)
+        if n <= 0 then
+            return { ok = false, reason = 'update_failed' }
+        end
+        local rows = GetDraftsForOwner(mailbox.mailbox_id)
+        return { ok = true, draftId = draftId, drafts = rows, count = #rows }
+    end
+
+    local insertId = InsertDraft(mailbox.mailbox_id, recipient, subject, message, cat, lhKey)
+    if not insertId then
+        return { ok = false, reason = 'insert_failed' }
+    end
+    local rows = GetDraftsForOwner(mailbox.mailbox_id)
+    return { ok = true, draftId = insertId, drafts = rows, count = #rows }
+end
+
+LXRMailbox.NetActions.DeleteDraft = function(src, params)
+    local draftId = params and tonumber(params.draftId)
+    if not draftId then
+        return { ok = false, reason = 'invalid_id' }
+    end
+    local user = Framework.GetUser(src)
+    if not user then
+        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+        return { ok = false, reason = 'user_not_found' }
+    end
+    local char = Framework.GetCharacter(user)
+    if not char then
+        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+        return { ok = false, reason = 'character_not_found' }
+    end
+    local mailbox = MailboxAPI:GetMailboxByCharIdentifier(Framework.GetCharIdentifier(char))
+    if not mailbox then
+        NotifyClient(src, _U('MailboxNotFound'), 'error', 5000)
+        return { ok = false, reason = 'mailbox_not_found' }
+    end
+    local n = DeleteDraftForOwner(draftId, mailbox.mailbox_id)
+    if n <= 0 then
+        return { ok = false, reason = 'delete_failed' }
+    end
+    local rows = GetDraftsForOwner(mailbox.mailbox_id)
+    return { ok = true, drafts = rows, count = #rows }
 end
 
 LXRMailbox.NetActions.PollUnread = function(src, params)
@@ -443,6 +726,12 @@ LXRMailbox.NetActions.RegisterMailbox = function(src, params)
         return { ok = false, reason = 'character_not_found' }
     end
 
+    local charIdentifier = Framework.GetCharIdentifier(char)
+    if GetMailboxByCharIdentifier(charIdentifier) then
+        NotifyClient(src, _U('MailboxAlreadyRegistered'), 'error', 5000)
+        return { ok = false, reason = 'already_registered' }
+    end
+
     local fee = tonumber(Config.RegistrationFee) or 0
     local balance = Framework.GetMoney(user)
     if balance < fee then
@@ -452,7 +741,6 @@ LXRMailbox.NetActions.RegisterMailbox = function(src, params)
 
     Framework.RemoveMoney(user, fee)
 
-    local charIdentifier = Framework.GetCharIdentifier(char)
     local firstName = Framework.GetFirstName(char)
     local lastName = Framework.GetLastName(char)
     local postalCode = GenerateUniquePostalCode()
@@ -476,6 +764,15 @@ LXRMailbox.NetActions.RegisterMailbox = function(src, params)
     end
 
     NotifyClient(src, _U('MailboxRegistered'), 'success', 5000)
+    if LXRMailbox.AppendMailAudit then
+        LXRMailbox.AppendMailAudit('mailbox_register', {
+            source_player = src,
+            char_identifier = charIdentifier and tostring(charIdentifier) or nil,
+            mailbox_id = result.mailbox_id,
+            target_mailbox_id = nil,
+            detail = 'postal=' .. tostring(postalCode),
+        })
+    end
     return {
         ok = true,
         mailboxId = result.mailbox_id,
@@ -516,6 +813,15 @@ LXRMailbox.NetActions.DeleteMail = function(src, params)
     if affected > 0 then
         RefreshMailboxHud(Framework.GetCharIdentifier(char))
         NotifyClient(src, _U('MailDeleted'), 'success', 5000)
+        if LXRMailbox.AppendMailAudit then
+            LXRMailbox.AppendMailAudit('mail_delete', {
+                source_player = src,
+                char_identifier = charIdStr,
+                mailbox_id = mailbox.mailbox_id,
+                target_mailbox_id = nil,
+                detail = 'mailId=' .. tostring(mailId),
+            })
+        end
         return { ok = true }
     end
 
@@ -668,36 +974,23 @@ LXRMailbox.NetActions.RemoveContact = function(src, params)
     return { ok = true, contacts = contacts, count = #contacts }
 end
 
-local netReqLastTick = {}
-
-local function netRateAllowed(src)
-    local rl = Config.NetRateLimit
-    if not rl or not rl.Enabled then
-        return true
-    end
-    local interval = tonumber(rl.MinIntervalMs) or 0
-    if interval <= 0 then
-        return true
-    end
-    local now = GetGameTimer()
-    local last = netReqLastTick[src]
-    if last and (now - last) < interval then
-        return false
-    end
-    netReqLastTick[src] = now
-    return true
-end
-
 AddEventHandler('playerDropped', function()
-    netReqLastTick[source] = nil
+    local src = source
+    sendSpamState[src] = nil
+    if LXRMailbox.NetRate and LXRMailbox.NetRate.ClearPlayer then
+        LXRMailbox.NetRate.ClearPlayer(src)
+    end
 end)
 
 RegisterNetEvent('lxr-mailbox:req', function(reqId, action, payload)
     local src = source
-    if not netRateAllowed(src) then
-        NotifyClient(src, _U('NetRateLimited'), 'error', 3500)
-        TriggerClientEvent('lxr-mailbox:res', src, reqId, { ok = false, reason = 'rate_limited' })
-        return
+    if LXRMailbox.NetRate and LXRMailbox.NetRate.AllowRequest then
+        local okRl, reasonRl = LXRMailbox.NetRate.AllowRequest(src, action)
+        if not okRl then
+            NotifyClient(src, _U('NetRateLimited'), 'error', 3500)
+            TriggerClientEvent('lxr-mailbox:res', src, reqId, { ok = false, reason = reasonRl or 'rate_limited' })
+            return
+        end
     end
     local fn = LXRMailbox.NetActions[action]
     if not fn then

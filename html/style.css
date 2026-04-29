@@ -311,3 +311,23 @@ textarea {
   font-size: 0.9rem;
   color: var(--muted);
 }
+
+.mail-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  color: var(--accent);
+  vertical-align: middle;
+}
+
+.read-meta {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
