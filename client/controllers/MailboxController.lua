@@ -27,6 +27,31 @@ local IDLE_WAIT_MS = 850
 local NEAR_POLL_MS = 45
 local HELP_REFRESH_MS = 220
 
+-- RedM: BeginTextCommandDisplayHelp / cousins are often not bound as Lua globals; invoke by hash.
+local HUD_BEGIN_TEXT_COMMAND_DISPLAY_HELP = 0x8509B634FBE7DA11
+local HUD_ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME = 0x6C188BE134E074AA
+local HUD_END_TEXT_COMMAND_DISPLAY_HELP = 0x238FFE5C7B0498A6
+
+local function displayNearMailboxHelp(text)
+    if type(BeginTextCommandDisplayHelp) == 'function' then
+        BeginTextCommandDisplayHelp('STRING')
+        AddTextComponentSubstringPlayerName(text)
+        EndTextCommandDisplayHelp(0, false, false, -1)
+        return
+    end
+    Citizen.InvokeNative(HUD_BEGIN_TEXT_COMMAND_DISPLAY_HELP, 'STRING')
+    if type(AddTextComponentSubstringPlayerName) == 'function' then
+        AddTextComponentSubstringPlayerName(text)
+    else
+        Citizen.InvokeNative(HUD_ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, text)
+    end
+    if type(EndTextCommandDisplayHelp) == 'function' then
+        EndTextCommandDisplayHelp(0, false, false, -1)
+    else
+        Citizen.InvokeNative(HUD_END_TEXT_COMMAND_DISPLAY_HELP, 0, false, false, -1)
+    end
+end
+
 local mailboxCoords = {}
 do
     for _, location in pairs(Config.MailboxLocations or {}) do
@@ -118,9 +143,7 @@ CreateThread(function()
                 local now = GetGameTimer()
                 if now - lastHelpAt >= HELP_REFRESH_MS then
                     lastHelpAt = now
-                    BeginTextCommandDisplayHelp('STRING')
-                    AddTextComponentSubstringPlayerName(_U('NearMailbox'))
-                    EndTextCommandDisplayHelp(0, false, false, -1)
+                    displayNearMailboxHelp(_U('NearMailbox'))
                 end
 
                 if IsControlJustPressed(0, INPUT_MAILBOX) then
