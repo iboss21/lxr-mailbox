@@ -1,0 +1,41 @@
+---
+description: NON-NEGOTIABLE — LXR Mailbox resource identity, escrow entrypoints, load order
+alwaysApply: true
+---
+
+# LXR Mailbox — resource identity (treat as product / license integrity)
+
+These rules override convenience, “cleanup,” or “readability” refactors. Violating them is unacceptable.
+
+## Canonical deploy name
+
+- The resource folder **must** be **`lxr-mailbox`**. Same for `exports['lxr-mailbox']`, events, and support docs.
+
+## Where enforcement lives (only here)
+
+- **No** separate integrity-only script (e.g. no `resource_integrity.lua` / `resource_guard.lua`).
+- Identity check is **only** in **`client/client.lua`** and **`server/server.lua`**, **immediately after** the closing `]]` of the mandatory LXR ASCII banner (see `lxr-ascii-banners.mdc` — never strip or move the banner to “save lines”).
+- Do **not** put a redundant plain-text `REQUIRED = 'lxr-mailbox'` block in **`config.lua`**, **`shared/*`**, or other open-edited files so casual buyers get a rename recipe next to settings.
+
+## fxmanifest load order (mandatory)
+
+- **`client/client.lua`** must be the **first** entry in `client_scripts`.
+- **`server/server.lua`** must be the **first** entry in `server_scripts` (before `@oxmysql/lib/MySQL.lua` and every other server file).
+
+## Behaviour
+
+- On wrong `GetCurrentResourceName()`, both entrypoints **`error('...', 0)`** at load time — **hard stop**. No downgrading to `print`, Notify, or “soft” warnings.
+
+## Tebex / escrow intent
+
+- **`client/client.lua`** and **`server/server.lua`** are the **intended Tebex escrow assets** for identity logic. Do not relocate the fatal check solely into non-escrow, buyer-editable files.
+
+## Implementation discipline
+
+- Do not replace **`string.char`-based** (or equivalent non-obvious) expected-name construction with a **bare `'lxr-mailbox'` literal** in those two files just to “make grep easier” for developers — that defeats the anti–trivial-tamper goal unless the owner explicitly asks.
+- When touching those two files, **preserve** the identity `do ... end` block verbatim unless fixing a real bug.
+
+## AI / refactors
+
+- Never suggest renaming the resource, removing the first-slot entries from the manifest, or “moving config-only” checks as the sole guard.
+- If asked to “remove duplication,” the answer is **no** — duplication across **only** these two escrow-style entrypoints is intentional; duplication into `config.lua` is **not** allowed.

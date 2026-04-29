@@ -38,7 +38,7 @@ client_scripts {
 }
 
 server_scripts {
-    'server/resource_name.lua',
+    'server/server.lua',
     '@oxmysql/lib/MySQL.lua',
     'server/framework_bridge.lua',
     'server/controllers.lua',
