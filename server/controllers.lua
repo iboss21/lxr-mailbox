@@ -26,7 +26,7 @@ end
 
 function GetMailboxByCharIdentifier(charIdentifier)
     local row = MySQL.single.await(
-        'SELECT mailbox_id, postal_code FROM bcc_mailboxes WHERE char_identifier = ? LIMIT 1',
+        'SELECT mailbox_id, postal_code, char_identifier FROM bcc_mailboxes WHERE char_identifier = ? LIMIT 1',
         { charIdentifier }
     )
     return row or nil
@@ -144,6 +144,22 @@ function DeleteMailForRecipient(mailId, mailboxIdStr, postalCodeStr, charIdStr)
         tostring(postalCodeStr or ''),
         tostring(charIdStr or ''),
     })
+    return normalizeAffectedRows(affected)
+end
+
+--- Removes a message the player sent (same row as inbox — deletes for recipient too).
+function DeleteMailForSender(mailId, senderMailboxId, senderPostalCode)
+    local mid = tonumber(senderMailboxId)
+    if not mid then return 0 end
+    local postal = tostring(senderPostalCode or '')
+    local affected = MySQL.update.await([[
+        DELETE FROM bcc_mailbox_messages
+        WHERE id = ?
+          AND (
+            sender_mailbox_id = ?
+            OR (sender_mailbox_id IS NULL AND (from_char = ? OR from_char = ?))
+          )
+    ]], { mailId, mid, postal, tostring(mid) })
     return normalizeAffectedRows(affected)
 end
 

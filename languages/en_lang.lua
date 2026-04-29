@@ -126,4 +126,11 @@ Locales["en_lang"] = {
     MailCategoryGovernment = 'Government',
     MailCategoryMedical = 'Medical',
     MailCategoryContract = 'Contract',
+    DraftSaved = 'Draft saved.',
+    DraftDeleted = 'Draft discarded.',
+    SentMailDeleted = 'Message removed from your outbox.',
+    SentMailDeleteFailed = 'Could not remove that sent message.',
+    SentMailDeleteConfirm = 'Remove this letter everywhere? The recipient will lose it too.',
+    DeleteDraftButton = 'Discard draft',
+    UnreadOnlyLabel = 'Unread only',
 }

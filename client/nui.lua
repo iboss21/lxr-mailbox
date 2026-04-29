@@ -138,3 +138,15 @@ CreateThread(function()
     Wait(800)
     Mailbox.PushLocales()
 end)
+
+RegisterNetEvent('lxr-mailbox:openRemote', function(data)
+    data = data or {}
+    if Mailbox.OpenNui then
+        Mailbox.OpenNui({
+            hasMailbox = data.hasMailbox ~= false,
+            nearMailbox = false,
+            postalCode = data.postalCode,
+            mailboxId = data.mailboxId,
+        })
+    end
+end)

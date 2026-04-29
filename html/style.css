@@ -331,3 +331,16 @@ textarea {
   color: var(--muted);
   margin: 0 0 8px;
 }
+
+.draft-item {
+  margin-bottom: 12px;
+}
+
+.draft-item .draft-delete {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.inbox-filter {
+  margin-bottom: 10px;
+}

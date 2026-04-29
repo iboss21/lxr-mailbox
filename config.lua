@@ -104,6 +104,10 @@ Config.LetterPurchaseCost = 10               -- Cost to buy a replacement letter
 Config.LetterPurchaseRadius = 2.0            -- Distance (m) from a mailbox required to buy a letter
 Config.UnreadReminderIntervalMinutes = 15    -- Minutes between unread mail reminders
 
+--- If true, registered players may open the postal NUI with `/mailbox` (no letter item).
+Config.AllowMailboxCommand = false
+Config.MailboxCommandName = 'mailbox'         -- console command without slash
+
 --- Maximum UTF-8 character lengths enforced server-side when sending mail (API + net actions).
 Config.MailLimits = {
     MaxSubjectLength = 200,
@@ -132,6 +136,7 @@ Config.NetRateLimit = {
         SaveDraft = { limit = 30, windowMs = 60000 },
         GetDrafts = { limit = 24, windowMs = 10000 },
         DeleteDraft = { limit = 20, windowMs = 60000 },
+        DeleteSentMail = { limit = 15, windowMs = 60000 },
         PurchaseLetter = { limit = 8, windowMs = 60000 },
     },
 }

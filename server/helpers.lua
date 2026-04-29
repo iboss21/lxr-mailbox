@@ -115,3 +115,12 @@ function TrimWhitespace(value)
 
     return str:sub(first, last)
 end
+
+--- Whitelist mail category against `Config.MailCategories`; default `personal`.
+function NormalizeMailCategory(raw)
+    local c = raw and tostring(raw):lower() or 'personal'
+    for _, def in ipairs(Config.MailCategories or {}) do
+        if def.id == c then return c end
+    end
+    return 'personal'
+end

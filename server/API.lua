@@ -46,6 +46,12 @@ local function utf8CharCount(str)
     return #str
 end
 
+local function normalizePriority(p)
+    p = p and tostring(p):lower() or 'normal'
+    if p == 'low' or p == 'high' then return p end
+    return 'normal'
+end
+
 local function findPlayerByCharIdentifier(charIdentifier)
     if not charIdentifier then return nil end
     for _, playerId in ipairs(GetPlayers and GetPlayers() or {}) do
@@ -162,10 +168,10 @@ function MailboxAPI:SendMailToMailbox(mailboxId, subject, message, options)
     local location = sanitizeString(options and options.location)
     local etaTimestamp = options and tonumber(options.etaTimestamp) or nil
 
-    local mailCategory = (options and options.mailCategory) and tostring(options.mailCategory):lower() or 'personal'
+    local mailCategory = NormalizeMailCategory(options and options.mailCategory)
     local letterheadKey = sanitizeString(options and options.letterheadKey)
     local priorityRaw = sanitizeString(options and options.priority) or 'normal'
-    local priority = tostring(priorityRaw):lower()
+    local priority = normalizePriority(priorityRaw)
     local isOfficial = (options and options.isOfficial) and true or false
     local senderMailboxId = options and tonumber(options.senderMailboxId) or nil
 

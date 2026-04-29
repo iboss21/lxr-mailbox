@@ -21,6 +21,7 @@
     inboxSearch: '',
     mailMeta: { categories: [], letterheads: [] },
     drafts: [],
+    inboxUnreadOnly: false,
     contacts: [],
     selectedMail: null,
     compose: {
@@ -183,6 +184,7 @@
             '<div class="loading-overlay">' + esc(t('ReceivedMessages')) + '…</div>';
           state.listKind = 'inbox';
           state.inboxSearch = '';
+          state.inboxUnreadOnly = false;
           api('FetchMail', {}).then(function (r) {
             state.mails = (r && r.mails) || [];
             state.view = 'inbox';
@@ -197,6 +199,7 @@
             '<div class="loading-overlay">' + esc(t('SentMailHeader')) + '…</div>';
           state.listKind = 'sent';
           state.inboxSearch = '';
+          state.inboxUnreadOnly = false;
           api('FetchSentMail', {}).then(function (r) {
             state.mails = (r && r.mails) || [];
             state.view = 'inbox';
@@ -247,14 +250,33 @@
       '<div class="field" style="margin-bottom:10px"><label>' +
       esc(t('SearchMailLabel')) +
       '</label><input type="search" id="inbox-search" /></div>';
+    var unreadRow =
+      state.listKind === 'inbox'
+        ? '<div class="checkbox-row inbox-filter"><label><input type="checkbox" id="inbox-unread"/> ' +
+          esc(t('UnreadOnlyLabel')) +
+          '</label></div>'
+        : '';
     var filtered = filterMails(state.mails, state.inboxSearch);
-    bodyEl.innerHTML = searchRow;
+    if (state.listKind === 'inbox' && state.inboxUnreadOnly) {
+      filtered = filtered.filter(function (m) {
+        return Number(m.is_read) !== 1;
+      });
+    }
+    bodyEl.innerHTML = searchRow + unreadRow;
     var inp = bodyEl.querySelector('#inbox-search');
     inp.value = state.inboxSearch || '';
     inp.oninput = function () {
       state.inboxSearch = inp.value;
       renderInbox();
     };
+    var unreadCb = bodyEl.querySelector('#inbox-unread');
+    if (unreadCb) {
+      unreadCb.checked = !!state.inboxUnreadOnly;
+      unreadCb.onchange = function () {
+        state.inboxUnreadOnly = unreadCb.checked;
+        renderInbox();
+      };
+    }
     if (!state.mails.length) {
       var e0 = document.createElement('div');
       e0.className = 'empty-hint';
@@ -315,6 +337,7 @@
         label: t('BackButtonLabel'),
         onClick: function () {
           state.inboxSearch = '';
+          state.inboxUnreadOnly = false;
           state.view = 'main';
           render();
         },
@@ -345,6 +368,14 @@
     }
 
     var extraMeta = '';
+    if (mail.priority && mail.priority !== 'normal') {
+      extraMeta +=
+        '<p class="read-meta">' +
+        esc(t('MailPriorityLabel')) +
+        ': ' +
+        esc(mail.priority) +
+        '</p>';
+    }
     if (mail.mail_category) {
       extraMeta +=
         '<p class="read-meta">' +
@@ -445,6 +476,22 @@
         onClick: function () {
           api('DeleteMail', { mailId: mail.id }).then(function () {
             refreshListAndBack();
+          });
+        },
+      });
+    } else {
+      ft.push({
+        label: t('DeleteMailButtonLabel'),
+        danger: true,
+        onClick: function () {
+          if (
+            typeof window.confirm === 'function' &&
+            !window.confirm(t('SentMailDeleteConfirm'))
+          ) {
+            return;
+          }
+          api('DeleteSentMail', { mailId: mail.id }).then(function (r) {
+            if (r && r.ok) refreshListAndBack();
           });
         },
       });
@@ -606,6 +653,8 @@
       var wrap = document.createElement('div');
       wrap.className = 'mail-list';
       state.drafts.forEach(function (d) {
+        var block = document.createElement('div');
+        block.className = 'draft-item';
         var row = document.createElement('button');
         row.type = 'button';
         row.className = 'mail-row';
@@ -630,7 +679,23 @@
           state.view = 'compose';
           render();
         };
-        wrap.appendChild(row);
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn danger draft-delete';
+        del.textContent = t('DeleteDraftButton');
+        del.onclick = function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          api('DeleteDraft', { draftId: d.id }).then(function (r) {
+            if (r && r.drafts) {
+              state.drafts = r.drafts;
+              render();
+            }
+          });
+        };
+        block.appendChild(row);
+        block.appendChild(del);
+        wrap.appendChild(block);
       });
       bodyEl.appendChild(wrap);
     }

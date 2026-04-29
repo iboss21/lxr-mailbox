@@ -124,4 +124,11 @@ Locales["pl_lang"] = {
     MailCategoryGovernment = "Rząd",
     MailCategoryMedical = "Medyczny",
     MailCategoryContract = "Umowa",
+    DraftSaved = "Szkic zapisany.",
+    DraftDeleted = "Szkic usunięty.",
+    SentMailDeleted = "Wiadomość usunięta z wysłanych.",
+    SentMailDeleteFailed = "Nie można usunąć tej wysłanej wiadomości.",
+    SentMailDeleteConfirm = "Usunąć ten list wszędzie? Odbiorca też go straci.",
+    DeleteDraftButton = "Usuń szkic",
+    UnreadOnlyLabel = "Tylko nieprzeczytane",
 }

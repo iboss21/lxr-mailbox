@@ -25,14 +25,6 @@ local MailboxAPI = MailboxAPI or exports['lxr-mailbox']:getMailboxAPI()
 
 local sendSpamState = {}
 
-local function normalizeMailCategory(raw)
-    local c = raw and tostring(raw):lower() or 'personal'
-    for _, def in ipairs(Config.MailCategories or {}) do
-        if def.id == c then return c end
-    end
-    return 'personal'
-end
-
 local function resolveLetterhead(src, key)
     if not key or tostring(key) == '' then
         return nil, 0
@@ -229,7 +221,7 @@ LXRMailbox.NetActions.SendMail = function(src, params)
         return response
     end
 
-    local cat = normalizeMailCategory(params and params.mailCategory)
+    local cat = NormalizeMailCategory(params and params.mailCategory)
     local pri = mailPriority(params and params.priority)
     local official = lhKey ~= nil and isOfficialLetterheadKey(lhKey)
 
@@ -479,7 +471,7 @@ LXRMailbox.NetActions.SaveDraft = function(src, params)
 
     local recipient = params and params.recipientPostal and TrimWhitespace(tostring(params.recipientPostal)) or nil
     if recipient == '' then recipient = nil end
-    local cat = normalizeMailCategory(params and params.mailCategory)
+    local cat = NormalizeMailCategory(params and params.mailCategory)
     local lhRaw = params and params.letterheadKey
     local lhKey = nil
     if lhRaw and tostring(lhRaw) ~= '' then
@@ -496,6 +488,7 @@ LXRMailbox.NetActions.SaveDraft = function(src, params)
             return { ok = false, reason = 'update_failed' }
         end
         local rows = GetDraftsForOwner(mailbox.mailbox_id)
+        NotifyClient(src, _U('DraftSaved'), 'success', 3500)
         return { ok = true, draftId = draftId, drafts = rows, count = #rows }
     end
 
@@ -504,6 +497,7 @@ LXRMailbox.NetActions.SaveDraft = function(src, params)
         return { ok = false, reason = 'insert_failed' }
     end
     local rows = GetDraftsForOwner(mailbox.mailbox_id)
+    NotifyClient(src, _U('DraftSaved'), 'success', 3500)
     return { ok = true, draftId = insertId, drafts = rows, count = #rows }
 end
 
@@ -532,6 +526,7 @@ LXRMailbox.NetActions.DeleteDraft = function(src, params)
         return { ok = false, reason = 'delete_failed' }
     end
     local rows = GetDraftsForOwner(mailbox.mailbox_id)
+    NotifyClient(src, _U('DraftDeleted'), 'success', 3500)
     return { ok = true, drafts = rows, count = #rows }
 end
 
@@ -826,6 +821,50 @@ LXRMailbox.NetActions.DeleteMail = function(src, params)
     end
 
     NotifyClient(src, _U('MailDeletionFailed'), 'error', 5000)
+    return { ok = false, reason = 'delete_failed' }
+end
+
+LXRMailbox.NetActions.DeleteSentMail = function(src, params)
+    local mailId = params and tonumber(params.mailId)
+    if not mailId then
+        return { ok = false, reason = 'invalid_id' }
+    end
+
+    local user = Framework.GetUser(src)
+    if not user then
+        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+        return { ok = false, reason = 'user_not_found' }
+    end
+    local char = Framework.GetCharacter(user)
+    if not char then
+        NotifyClient(src, _U('error_invalid_character_data'), 'error', 4000)
+        return { ok = false, reason = 'character_not_found' }
+    end
+
+    local mailbox = MailboxAPI:GetMailboxByCharIdentifier(Framework.GetCharIdentifier(char))
+    if not mailbox then
+        NotifyClient(src, _U('MailboxNotFound'), 'error', 5000)
+        return { ok = false, reason = 'mailbox_not_found' }
+    end
+
+    local charIdStr = tostring(Framework.GetCharIdentifier(char))
+    local affected = DeleteMailForSender(mailId, mailbox.mailbox_id, mailbox.postal_code)
+    if affected > 0 then
+        RefreshMailboxHud(Framework.GetCharIdentifier(char))
+        NotifyClient(src, _U('SentMailDeleted'), 'success', 5000)
+        if LXRMailbox.AppendMailAudit then
+            LXRMailbox.AppendMailAudit('mail_delete_sent', {
+                source_player = src,
+                char_identifier = charIdStr,
+                mailbox_id = mailbox.mailbox_id,
+                target_mailbox_id = nil,
+                detail = 'mailId=' .. tostring(mailId),
+            })
+        end
+        return { ok = true }
+    end
+
+    NotifyClient(src, _U('SentMailDeleteFailed'), 'error', 5000)
     return { ok = false, reason = 'delete_failed' }
 end
 

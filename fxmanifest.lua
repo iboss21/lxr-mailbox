@@ -49,6 +49,8 @@ server_scripts {
     'server/dbUpdater.lua',
     'server/items.lua',
     'server/net_actions.lua',
+    'server/exports.lua',
+    'server/open_mailbox.lua',
 }
 
 dependency {

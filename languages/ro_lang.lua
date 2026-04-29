@@ -124,4 +124,11 @@ Locales["ro_lang"] = {
     MailCategoryGovernment = 'Guvern',
     MailCategoryMedical = 'Medical',
     MailCategoryContract = 'Contract',
+    DraftSaved = 'Ciorna salvata.',
+    DraftDeleted = 'Ciorna stearsa.',
+    SentMailDeleted = 'Mesaj eliminat din trimise.',
+    SentMailDeleteFailed = 'Nu am putut elimina mesajul trimis.',
+    SentMailDeleteConfirm = 'Elimini aceasta scrisoare peste tot? Destinatarul o va pierde si el.',
+    DeleteDraftButton = 'Sterge ciorna',
+    UnreadOnlyLabel = 'Doar necitite',
 }

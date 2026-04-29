@@ -119,6 +119,27 @@ CreateThread(function()
     MySQL.query.await([[CREATE INDEX IF NOT EXISTS `idx_contacts_owner` ON `bcc_mailbox_contacts` (`owner_mailbox_id`)]])
     MySQL.query.await([[CREATE INDEX IF NOT EXISTS `idx_mailboxes_char` ON `bcc_mailboxes` (`char_identifier`(100))]])
 
+    pcall(function()
+        MySQL.update.await([[
+            UPDATE bcc_mailbox_messages m
+            INNER JOIN bcc_mailboxes b ON UPPER(TRIM(COALESCE(m.from_char, ''))) = UPPER(TRIM(COALESCE(b.postal_code, '')))
+            SET m.sender_mailbox_id = b.mailbox_id
+            WHERE m.sender_mailbox_id IS NULL
+              AND m.from_char IS NOT NULL
+              AND TRIM(m.from_char) <> ''
+              AND b.postal_code IS NOT NULL
+        ]])
+    end)
+    pcall(function()
+        MySQL.update.await([[
+            UPDATE bcc_mailbox_messages m
+            INNER JOIN bcc_mailboxes b ON m.from_char = CAST(b.mailbox_id AS CHAR)
+            SET m.sender_mailbox_id = b.mailbox_id
+            WHERE m.sender_mailbox_id IS NULL
+              AND m.from_char IS NOT NULL
+        ]])
+    end)
+
     local rows = MySQL.query.await("SELECT `mailbox_id` FROM `bcc_mailboxes` WHERE `postal_code` IS NULL OR `postal_code` = ''")
     if rows and #rows > 0 then
         for _, row in ipairs(rows) do
